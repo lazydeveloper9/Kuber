@@ -1,0 +1,20 @@
+[
+    {
+        "timestamp": "2026-03-29T17:17:03.662700+00:00",
+        "incident_summary": "Cluster is healthy. No anomalies detected.",
+        "action_taken": "",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-29T17:24:47.125360+00:00",
+        "incident_summary": "The pod is failing due to a missing environment variable, DB_CONNECTION_STRING, which is required for the container to function correctly, causing it to crash and triggering a restart loop. This issue can be resolved by setting the correct value for this environment variable in the pod's configuration or deployment YAML file.",
+        "action_taken": "Successfully patched ENV on api-gateway-crash.",
+        "human_approved": true
+    },
+    {
+        "timestamp": "2026-03-29T17:25:59.530998+00:00",
+        "incident_summary": "The pod is failing due to a missing environment variable, DB_CONNECTION_STRING, which is required for the API Gateway container to function properly.\n\nThis is likely because the image used by the container does not provide this variable, and it was not set manually in the pod's configuration.",
+        "action_taken": "Execution aborted by human.",
+        "human_approved": false
+    }
+]
