@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-crash
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: gateway-container
+        image: busybox
+        # Intentionally failing script to leave an obvious breadcrumb in the logs for your LLM
+        command: 
+        - "/bin/sh"
+        - "-c"
+        - "echo 'Booting API Gateway...'; sleep 2; echo 'FATAL: Missing required ENV var DB_CONNECTION_STRING. Halting.'; exit 1"

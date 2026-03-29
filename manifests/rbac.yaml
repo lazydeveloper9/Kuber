@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8swhisperer-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8swhisperer-cluster-role
+rules:
+# 1. Pod & Node Observation + Pod Execution
+- apiGroups: [""]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list", "watch", "patch", "delete"]
+
+# 2. Log Access (Read-only for Diagnosis)
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get", "list"]
+
+# 3. Event Observation (Required for Detect phase across all namespaces)
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch"]
+
+# 4. Deployment Management (For the Plan & Execute phase)
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8swhisperer-cluster-binding
+subjects:
+- kind: ServiceAccount
+  name: k8swhisperer-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: k8swhisperer-cluster-role
+  apiGroup: rbac.authorization.k8s.io
