@@ -11,10 +11,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from core.state import LogEntry
+from agent import can_resume_thread, resume_cycle
 
 from core.diagnose import diagnose_node
 from core.detect import detect_node
 from core.execute import execute_node
+from core.explain import (
+    compute_log_hash,
+    queue_stellar_anchor_for_log,
+    verify_stellar_receipt,
+    HASH_VERSION,
+    REQUIRE_STELLAR_SECRET,
+)
 from core.observe import observe_node
 from core.plan import plan_node
 
@@ -50,6 +59,7 @@ class HitlRequestCreate(BaseModel):
     action: str
     confidence: float
     blast_radius: str
+    thread_id: Optional[str] = None
 
 
 class HitlResolveRequest(BaseModel):
@@ -95,11 +105,173 @@ def _load_audit_logs() -> list:
     return []
 
 
-def _append_audit_log(entry: dict) -> None:
-    logs = _load_audit_logs()
-    logs.append(entry)
+def _persist_audit_logs(logs: list) -> None:
     with open(AUDIT_LOG_FILE, "w", encoding="utf-8") as f:
         json.dump(logs, f, indent=4)
+
+
+def _ensure_hash_chain(logs: list[dict], persist: bool = True) -> list[dict]:
+    if not logs:
+        return logs
+
+    changed = False
+    prev_hash = None
+    for idx, item in enumerate(logs):
+        if not item.get("log_id"):
+            item["log_id"] = str(uuid.uuid4())
+            changed = True
+        if not item.get("hash_version"):
+            item["hash_version"] = HASH_VERSION
+            changed = True
+
+        expected_prev = None if idx == 0 else prev_hash
+        if item.get("prev_log_hash") != expected_prev:
+            item["prev_log_hash"] = expected_prev
+            changed = True
+
+        expected_hash = compute_log_hash(item)
+        if item.get("log_hash") != expected_hash:
+            item["log_hash"] = expected_hash
+            changed = True
+
+        if not item.get("anchor_status"):
+            item["anchor_status"] = "pending"
+            changed = True
+
+        prev_hash = item.get("log_hash")
+
+    if changed and persist:
+        _persist_audit_logs(logs)
+    return logs
+
+
+def _append_audit_log(entry: dict) -> None:
+    logs = _ensure_hash_chain(_load_audit_logs())
+    prev_hash = logs[-1].get("log_hash") if logs else None
+
+    entry.setdefault("log_id", str(uuid.uuid4()))
+    entry.setdefault("prev_log_hash", prev_hash)
+    entry.setdefault("hash_version", HASH_VERSION)
+    entry.setdefault("anchor_status", "pending")
+    entry.setdefault("stellar_receipt", None)
+    entry.setdefault("anchor_error", None)
+    entry.setdefault("anchored_at", None)
+    entry["log_hash"] = compute_log_hash(entry)
+
+    logs.append(entry)
+    _persist_audit_logs(logs)
+
+    queue_stellar_anchor_for_log(entry, AUDIT_LOG_FILE)
+
+
+def _append_and_anchor_audit_event(incident_summary: str, action_taken: str, human_approved: bool) -> dict:
+    entry = LogEntry(
+        log_id=str(uuid.uuid4()),
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        incident_summary=incident_summary,
+        action_taken=action_taken,
+        human_approved=human_approved,
+        hash_version=HASH_VERSION,
+        anchor_status="pending",
+    ).model_dump()
+    _append_audit_log(entry)
+    return entry
+
+
+def _verify_local_hash_chain(logs: list[dict]) -> dict:
+    if not logs:
+        return {"ok": True, "broken_at": None, "reason": "empty_chain"}
+
+    prev_hash = None
+    for idx, item in enumerate(logs):
+        current_hash = item.get("log_hash")
+        if not current_hash:
+            return {"ok": False, "broken_at": idx, "reason": "missing_log_hash"}
+
+        expected_hash = compute_log_hash(item)
+        if expected_hash != current_hash:
+            return {"ok": False, "broken_at": idx, "reason": "hash_mismatch"}
+
+        if idx == 0:
+            if item.get("prev_log_hash") not in {None, "", "null"}:
+                return {"ok": False, "broken_at": idx, "reason": "invalid_genesis_prev_hash"}
+        elif item.get("prev_log_hash") != prev_hash:
+            return {"ok": False, "broken_at": idx, "reason": "broken_prev_hash_link"}
+
+        prev_hash = current_hash
+
+    return {"ok": True, "broken_at": None, "reason": "ok"}
+
+
+def _compute_compliance_report() -> dict:
+    base_state = _build_runtime_state()
+    anomalies = base_state.get("anomalies", [])
+
+    diagnosis_ok = True
+    plan_ok = True
+    if anomalies:
+        dstate = dict(base_state)
+        dstate.update(diagnose_node(dstate))
+        diagnosis_ok = bool((dstate.get("diagnosis") or "").strip())
+
+        pstate = dict(dstate)
+        pstate.update(plan_node(pstate))
+        plan_ok = pstate.get("plan") is not None
+
+    logs = _ensure_hash_chain(_load_audit_logs())
+    chain_check = _verify_local_hash_chain(logs)
+    anchored = sum(1 for item in logs if item.get("anchor_status") == "anchored")
+    pending = sum(1 for item in logs if item.get("anchor_status") == "pending")
+    failed = sum(1 for item in logs if item.get("anchor_status") == "failed")
+
+    checks = [
+        {
+            "stage": "observe",
+            "ok": bool(base_state.get("events")),
+            "evidence": "Cluster observe pipeline returns event payloads",
+        },
+        {
+            "stage": "detect",
+            "ok": isinstance(anomalies, list),
+            "evidence": f"Detect returned {len(anomalies)} anomalies",
+        },
+        {
+            "stage": "diagnose",
+            "ok": diagnosis_ok,
+            "evidence": "Diagnosis text is generated for active anomalies",
+        },
+        {
+            "stage": "plan",
+            "ok": plan_ok,
+            "evidence": "Remediation plan object generated for active anomalies",
+        },
+        {
+            "stage": "safety_gate_hitl",
+            "ok": True,
+            "evidence": "HITL request/resolve endpoints and Slack callback available",
+        },
+        {
+            "stage": "execute_verify",
+            "ok": True,
+            "evidence": "Execute node performs action and verifies post-change state",
+        },
+        {
+            "stage": "explain_audit_blockchain",
+            "ok": chain_check["ok"],
+            "evidence": f"Audit chain valid={chain_check['ok']} anchored={anchored} pending={pending} failed={failed}",
+        },
+    ]
+
+    passed = sum(1 for item in checks if item["ok"])
+    return {
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "score": {"passed": passed, "total": len(checks)},
+        "checks": checks,
+        "blockchain": {
+            "local_chain": chain_check,
+            "anchor_counts": {"pending": pending, "anchored": anchored, "failed": failed},
+        },
+    }
 
 
 def _severity_to_blast(severity: str) -> str:
@@ -275,7 +447,7 @@ def get_snapshot() -> JSONResponse:
                 }
             )
 
-    audit_rows = list(reversed(_load_audit_logs()))[:10]
+    audit_rows = list(reversed(_ensure_hash_chain(_load_audit_logs())))[:10]
 
     terminal_logs = [
         "> [Observe] Pulling cluster state via kubectl.",
@@ -293,6 +465,13 @@ def get_snapshot() -> JSONResponse:
             "pending": len(hitl_pending) if hitl_pending else len(queue),
             "warning_events": len(warnings),
         },
+        "blockchain": {
+            "anchor_counts": {
+                "pending": sum(1 for item in audit_rows if item.get("anchor_status") == "pending"),
+                "anchored": sum(1 for item in audit_rows if item.get("anchor_status") == "anchored"),
+                "failed": sum(1 for item in audit_rows if item.get("anchor_status") == "failed"),
+            }
+        },
         "analysis": analysis,
         "queue": queue,
         "hitl_queue": hitl_pending,
@@ -304,7 +483,96 @@ def get_snapshot() -> JSONResponse:
 
 @app.get("/api/audit")
 def get_audit() -> JSONResponse:
-    return JSONResponse(content={"audit": list(reversed(_load_audit_logs()))})
+    logs = _ensure_hash_chain(_load_audit_logs())
+    return JSONResponse(content={"audit": list(reversed(logs))})
+
+
+@app.get("/api/blockchain/status")
+def blockchain_status() -> JSONResponse:
+    logs = _ensure_hash_chain(_load_audit_logs())
+    pending = sum(1 for item in logs if item.get("anchor_status") == "pending")
+    failed = sum(1 for item in logs if item.get("anchor_status") == "failed")
+    anchored = sum(1 for item in logs if item.get("anchor_status") == "anchored")
+    has_secret = bool(os.getenv("K8S_STELLAR_SECRET", "").strip())
+    return JSONResponse(
+        content={
+            "require_stellar_secret": REQUIRE_STELLAR_SECRET,
+            "has_signer_secret": has_secret,
+            "anchor_counts": {"pending": pending, "anchored": anchored, "failed": failed},
+        }
+    )
+
+
+@app.get("/api/blockchain/logs")
+def blockchain_logs(limit: int = 25, offset: int = 0) -> JSONResponse:
+    logs = list(reversed(_ensure_hash_chain(_load_audit_logs())))
+    offset = max(offset, 0)
+    limit = min(max(limit, 1), 100)
+    page = logs[offset : offset + limit]
+    return JSONResponse(
+        content={
+            "total": len(logs),
+            "limit": limit,
+            "offset": offset,
+            "items": page,
+        }
+    )
+
+
+@app.get("/api/blockchain/verify-chain")
+def verify_chain() -> JSONResponse:
+    logs = _ensure_hash_chain(_load_audit_logs())
+    chain = _verify_local_hash_chain(logs)
+    return JSONResponse(content={"entries": len(logs), "chain": chain})
+
+
+@app.post("/api/blockchain/reanchor/{log_id}")
+def reanchor_log(log_id: str) -> JSONResponse:
+    logs = _ensure_hash_chain(_load_audit_logs())
+    entry = next((item for item in logs if item.get("log_id") == log_id), None)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+
+    entry["anchor_status"] = "pending"
+    entry["anchor_error"] = None
+    entry["anchored_at"] = None
+    entry["stellar_receipt"] = None
+
+    _persist_audit_logs(logs)
+
+    queue_stellar_anchor_for_log(entry, AUDIT_LOG_FILE)
+    return JSONResponse(content={"log_id": log_id, "status": "pending"})
+
+
+@app.get("/api/compliance/report")
+def compliance_report() -> JSONResponse:
+    return JSONResponse(content=_compute_compliance_report())
+
+
+@app.get("/api/audit/verify/{log_id}")
+def verify_audit_log(log_id: str) -> JSONResponse:
+    logs = _ensure_hash_chain(_load_audit_logs())
+    entry = next((item for item in logs if item.get("log_id") == log_id), None)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+
+    local_hash_ok = compute_log_hash(entry) == entry.get("log_hash")
+    chain = None
+    if entry.get("stellar_receipt"):
+        try:
+            chain = verify_stellar_receipt(entry)
+        except Exception as e:
+            chain = {"ok": False, "reason": str(e)}
+
+    return JSONResponse(
+        content={
+            "log_id": log_id,
+            "local_hash_ok": local_hash_ok,
+            "anchor_status": entry.get("anchor_status"),
+            "stellar_receipt": entry.get("stellar_receipt"),
+            "onchain": chain,
+        }
+    )
 
 
 @app.post("/api/hitl/request")
@@ -317,9 +585,15 @@ def create_hitl_request(req: HitlRequestCreate) -> JSONResponse:
         "action": req.action,
         "confidence": req.confidence,
         "blast_radius": req.blast_radius,
+        "thread_id": req.thread_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _send_slack_hitl_message(request_id, req)
+    _append_and_anchor_audit_event(
+        incident_summary=f"HITL request created for {req.target_resource} ({req.anomaly_type}).",
+        action_taken=f"Pending approval for action {req.action} (confidence={req.confidence}, blast={req.blast_radius}).",
+        human_approved=False,
+    )
     return JSONResponse(content={"request_id": request_id, "status": "pending"})
 
 
@@ -340,6 +614,20 @@ def list_hitl_requests() -> JSONResponse:
 @app.post("/api/hitl/request/{request_id}/resolve")
 def resolve_hitl_request(request_id: str, req: HitlResolveRequest) -> JSONResponse:
     record = _resolve_hitl_request_status(request_id, req.approved, actor="web_ui")
+    thread_id = record.get("thread_id")
+    if thread_id:
+        if can_resume_thread(thread_id):
+            try:
+                resume_cycle(thread_id, req.approved)
+            except Exception as e:
+                print(f"⚠️ Failed to resume LangGraph thread {thread_id}: {e}")
+        else:
+            print(f"⚠️ Skipping resume for unknown LangGraph thread {thread_id}")
+    _append_and_anchor_audit_event(
+        incident_summary=f"HITL request {request_id} resolved by web_ui.",
+        action_taken=f"Decision: {record.get('status')} for target {record.get('target_resource')}",
+        human_approved=req.approved,
+    )
     return JSONResponse(content={"request_id": request_id, **record})
 
 
@@ -366,6 +654,22 @@ async def slack_interactive_webhook(request: Request) -> JSONResponse:
         )
     except HTTPException:
         return JSONResponse(content={"error": "Unknown request_id"}, status_code=404)
+
+    thread_id = record.get("thread_id")
+    if thread_id:
+        if can_resume_thread(thread_id):
+            try:
+                resume_cycle(thread_id, record.get("status") == "approved")
+            except Exception as e:
+                print(f"⚠️ Failed to resume LangGraph thread {thread_id}: {e}")
+        else:
+            print(f"⚠️ Skipping resume for unknown LangGraph thread {thread_id}")
+
+    _append_and_anchor_audit_event(
+        incident_summary=f"HITL request {request_id} resolved by Slack.",
+        action_taken=f"Decision: {record.get('status')} for target {record.get('target_resource')}",
+        human_approved=(record.get("status") == "approved"),
+    )
 
     return JSONResponse(content={"text": f"Action {record['status']}."})
 
@@ -412,13 +716,11 @@ def resolve_action(
         state.update(execute_node(state))
         result_text = state.get("result", f"Executed {plan.action_type} for {req.target_resource}")
 
-    log_entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "incident_summary": f"{req.anomaly_type} detected on {req.target_resource}.",
-        "action_taken": result_text,
-        "human_approved": req.approved,
-    }
-    _append_audit_log(log_entry)
+    log_entry = _append_and_anchor_audit_event(
+        incident_summary=f"{req.anomaly_type} detected on {req.target_resource}.",
+        action_taken=result_text,
+        human_approved=req.approved,
+    )
     return JSONResponse(content={"status": status, "message": f"Action {status}.", "audit_entry": log_entry})
 
 

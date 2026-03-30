@@ -260,17 +260,19 @@
 
         <div class="flex gap-8 text-sm mt-6 md:mt-0 glass px-8 py-3 rounded-full font-medium">
             <span onclick="switchView('dashboard')" id="nav-dashboard"
-                class="text-blue-500 cursor-pointer border-b-2 border-blue-500 pb-1">Dashboard</span>
+                class="nav-link text-blue-500 cursor-pointer border-b-2 border-blue-500 pb-1">Dashboard</span>
             <span onclick="switchView('analysis')" id="nav-analysis"
-                class="text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors">Analysis</span>
+                class="nav-link text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors">Analysis</span>
             <span onclick="switchView('approval')" id="nav-approval"
-                class="text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors flex items-center gap-2">
+                class="nav-link text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors flex items-center gap-2">
                 Queue <span id="queue-badge"
                     class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm"></span>
             </span>
             <span onclick="switchView('audit')" id="nav-audit"
-                class="text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors">Audit
+                class="nav-link text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors">Audit
                 Trail</span>
+            <span onclick="switchView('blockchain')" id="nav-blockchain"
+                class="nav-link text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors">Blockchain</span>
         </div>
 
         <div class="flex items-center gap-4 mt-4 md:mt-0">
@@ -352,19 +354,22 @@
             <div class="glass p-5 rounded-2xl animate-flip">
                 <p
                     class="text-theme-muted text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <i data-lucide="box" class="w-3.5 h-3.5 text-blue-500"></i> Active Pods</p>
+                    <i data-lucide="box" class="w-3.5 h-3.5 text-blue-500"></i> Active Pods
+                </p>
                 <p class="text-3xl font-black text-[var(--text-main)]" id="metric-pods">--</p>
             </div>
             <div class="glass p-5 rounded-2xl animate-flip delay-100">
                 <p
                     class="text-theme-muted text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <i data-lucide="server" class="w-3.5 h-3.5 text-blue-500"></i> Worker Nodes</p>
+                    <i data-lucide="server" class="w-3.5 h-3.5 text-blue-500"></i> Worker Nodes
+                </p>
                 <p class="text-3xl font-black text-[var(--text-main)]" id="metric-nodes">--</p>
             </div>
             <div class="glass p-5 rounded-2xl animate-flip delay-200">
                 <p
                     class="text-theme-muted text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-500"></i> Anomalies (24h)</p>
+                    <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-500"></i> Anomalies (24h)
+                </p>
                 <p class="text-3xl font-black text-[var(--text-main)]" id="metric-anomalies">--</p>
             </div>
             <div class="glass p-5 rounded-2xl animate-flip delay-300 cursor-pointer hover:border-red-500/50 transition-colors border-b-4 border-b-red-500"
@@ -565,6 +570,67 @@
         </div>
     </main>
 
+    <main id="view-blockchain" class="view-section flex-1 max-w-6xl mx-auto w-full">
+        <div class="mb-8 animate-flip border-b border-[var(--panel-border)] pb-6">
+            <h2 class="text-2xl font-bold flex items-center gap-3"><i data-lucide="link"
+                    class="text-emerald-500 w-6 h-6"></i> Blockchain Assurance</h2>
+            <p class="text-sm text-theme-muted mt-1.5">Tamper-evident anchoring and production readiness checks.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="glass p-5 rounded-2xl animate-flip">
+                <p class="text-[10px] uppercase font-bold tracking-widest text-theme-muted mb-2">Anchored Logs</p>
+                <p id="bc-anchored" class="text-3xl font-black text-emerald-500">--</p>
+            </div>
+            <div class="glass p-5 rounded-2xl animate-flip delay-100">
+                <p class="text-[10px] uppercase font-bold tracking-widest text-theme-muted mb-2">Pending Anchors</p>
+                <p id="bc-pending" class="text-3xl font-black text-yellow-500">--</p>
+            </div>
+            <div class="glass p-5 rounded-2xl animate-flip delay-200">
+                <p class="text-[10px] uppercase font-bold tracking-widest text-theme-muted mb-2">Failed Anchors</p>
+                <p id="bc-failed" class="text-3xl font-black text-red-500">--</p>
+            </div>
+            <div class="glass p-5 rounded-2xl animate-flip delay-300">
+                <p class="text-[10px] uppercase font-bold tracking-widest text-theme-muted mb-2">Compliance</p>
+                <p id="bc-compliance" class="text-3xl font-black text-blue-500">--</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass rounded-2xl p-6 animate-flip border border-[var(--panel-border)]">
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="font-bold text-base">Chain Integrity</h3>
+                    <button onclick="refreshBlockchainData()"
+                        class="text-xs border border-[var(--panel-border)] px-3 py-1.5 rounded-lg hover:bg-[var(--hover-bg)]">Refresh</button>
+                </div>
+                <p class="text-sm text-theme-muted mb-2">Local Hash Chain</p>
+                <p id="bc-chain-status" class="text-lg font-bold">Checking...</p>
+                <p id="bc-chain-detail" class="text-xs text-theme-muted mt-2"></p>
+                <p id="bc-signer-status" class="text-xs text-theme-muted mt-4"></p>
+            </div>
+
+            <div class="glass rounded-2xl p-6 animate-flip delay-100 border border-[var(--panel-border)]">
+                <h3 class="font-bold text-base mb-5">Stage Coverage</h3>
+                <div id="compliance-checks" class="space-y-2 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="glass rounded-2xl mt-6 animate-flip delay-200 overflow-x-auto border border-[var(--panel-border)]">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-[var(--hover-bg)] text-[10px] text-theme-muted border-b border-[var(--panel-border)]">
+                    <tr>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Log ID</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Anchor Status</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Stellar Tx</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Verification</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="bc-logs-body" class="divide-y divide-[var(--panel-border)] text-sm"></tbody>
+            </table>
+        </div>
+    </main>
+
     <script>
         // --- 1. THEME LOGIC ---
         let isDarkMode = false;
@@ -713,6 +779,113 @@
         let usageChartIns = null;
         let anomalyChartIns = null;
         let terminalLogs = [];
+        let blockchainRows = [];
+
+        async function refreshBlockchainData() {
+            try {
+                const [statusRes, chainRes, logsRes, complianceRes] = await Promise.all([
+                    fetch('/api/blockchain/status', { cache: 'no-store' }),
+                    fetch('/api/blockchain/verify-chain', { cache: 'no-store' }),
+                    fetch('/api/blockchain/logs?limit=20&offset=0', { cache: 'no-store' }),
+                    fetch('/api/compliance/report', { cache: 'no-store' }),
+                ]);
+
+                if (!statusRes.ok || !chainRes.ok || !logsRes.ok || !complianceRes.ok) {
+                    throw new Error('Blockchain API call failed');
+                }
+
+                const status = await statusRes.json();
+                const chain = await chainRes.json();
+                const logs = await logsRes.json();
+                const compliance = await complianceRes.json();
+
+                const counts = status.anchor_counts || {};
+                document.getElementById('bc-anchored').innerText = counts.anchored ?? 0;
+                document.getElementById('bc-pending').innerText = counts.pending ?? 0;
+                document.getElementById('bc-failed').innerText = counts.failed ?? 0;
+
+                const score = compliance.score || { passed: 0, total: 0 };
+                document.getElementById('bc-compliance').innerText = `${score.passed}/${score.total}`;
+
+                const chainOk = !!(chain.chain && chain.chain.ok);
+                const reason = chain.chain?.reason || 'unknown';
+                document.getElementById('bc-chain-status').innerText = chainOk ? 'PASS' : 'FAIL';
+                document.getElementById('bc-chain-status').className = `text-lg font-bold ${chainOk ? 'text-emerald-500' : 'text-red-500'}`;
+                document.getElementById('bc-chain-detail').innerText = `Entries: ${chain.entries ?? 0} | Reason: ${reason}`;
+                document.getElementById('bc-signer-status').innerText = status.has_signer_secret
+                    ? 'Signer: configured'
+                    : 'Signer: not configured (ephemeral mode allowed if not required)';
+
+                const checksContainer = document.getElementById('compliance-checks');
+                checksContainer.innerHTML = '';
+                (compliance.checks || []).forEach((check) => {
+                    checksContainer.innerHTML += `
+                        <div class="flex items-start justify-between gap-3 border border-[var(--panel-border)] rounded-lg p-3">
+                            <div>
+                                <p class="font-semibold text-sm">${check.stage}</p>
+                                <p class="text-xs text-theme-muted mt-1">${check.evidence || ''}</p>
+                            </div>
+                            <span class="text-[10px] px-2 py-1 rounded-md font-bold ${check.ok ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'}">${check.ok ? 'PASS' : 'FAIL'}</span>
+                        </div>`;
+                });
+
+                const tbody = document.getElementById('bc-logs-body');
+                tbody.innerHTML = '';
+                blockchainRows = Array.isArray(logs.items) ? logs.items : [];
+                blockchainRows.forEach((row) => {
+                    const shortId = (row.log_id || '').slice(0, 10);
+                    const tx = row.stellar_receipt ? row.stellar_receipt.slice(0, 12) + '...' : '--';
+                    const statusClass = row.anchor_status === 'anchored'
+                        ? 'text-emerald-500'
+                        : row.anchor_status === 'failed'
+                            ? 'text-red-500'
+                            : 'text-yellow-500';
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-[var(--hover-bg)] transition-colors">
+                            <td class="py-4 px-6 text-xs font-mono">${shortId}</td>
+                            <td class="py-4 px-6 text-xs font-bold ${statusClass}">${row.anchor_status || 'pending'}</td>
+                            <td class="py-4 px-6 text-xs font-mono text-theme-muted">${tx}</td>
+                            <td class="py-4 px-6 text-xs" id="verify-${row.log_id}">Not checked</td>
+                            <td class="py-4 px-6 text-xs flex gap-2">
+                                <button onclick="verifyAuditLog('${row.log_id}')" class="border border-[var(--panel-border)] px-2 py-1 rounded hover:bg-[var(--hover-bg)]">Verify</button>
+                                <button onclick="reanchorAuditLog('${row.log_id}')" class="border border-[var(--panel-border)] px-2 py-1 rounded hover:bg-[var(--hover-bg)]">Re-anchor</button>
+                            </td>
+                        </tr>`;
+                });
+
+                lucide.createIcons();
+            } catch (err) {
+                showToast('Unable to load blockchain status.', 'error');
+            }
+        }
+
+        async function verifyAuditLog(logId) {
+            try {
+                const res = await fetch(`/api/audit/verify/${logId}`, { cache: 'no-store' });
+                if (!res.ok) throw new Error('Verification failed');
+                const body = await res.json();
+                const ok = body.local_hash_ok && (body.onchain?.ok ?? true);
+                const cell = document.getElementById(`verify-${logId}`);
+                if (cell) {
+                    cell.innerText = ok ? 'PASS' : 'FAIL';
+                    cell.className = `py-4 px-6 text-xs font-bold ${ok ? 'text-emerald-500' : 'text-red-500'}`;
+                }
+                showToast(ok ? 'Audit proof verified.' : 'Audit proof check failed.', ok ? 'success' : 'error');
+            } catch (err) {
+                showToast('Could not verify audit log.', 'error');
+            }
+        }
+
+        async function reanchorAuditLog(logId) {
+            try {
+                const res = await fetch(`/api/blockchain/reanchor/${logId}`, { method: 'POST' });
+                if (!res.ok) throw new Error('Re-anchor failed');
+                showToast('Re-anchor request queued.', 'success');
+                await refreshBlockchainData();
+            } catch (err) {
+                showToast('Could not queue re-anchor.', 'error');
+            }
+        }
 
         async function generateData() {
             try {
@@ -910,7 +1083,7 @@
                 b.disabled = true;
                 b.classList.add('opacity-50', 'cursor-not-allowed');
             });
-            
+
             if (isApproved) {
                 buttons[0].innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> Executing...`;
             } else {
@@ -944,7 +1117,7 @@
 
             // Immediately hide the card as the backend is now processing via BackgroundTasks
             document.getElementById(id).style.display = 'none';
-            
+
             let c = parseInt(document.getElementById('queue-badge').innerText) - 1;
             document.getElementById('queue-badge').innerText = c;
             document.getElementById('metric-pending').innerText = c;
@@ -979,10 +1152,12 @@
             initTheme();
             lucide.createIcons();
             await generateData();
+            await refreshBlockchainData();
             setTimeout(renderCharts, 150);
             runTerminal();
             setInterval(async () => {
                 await generateData();
+                await refreshBlockchainData();
                 runTerminal();
             }, 30000);
         });

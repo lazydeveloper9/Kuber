@@ -19,10 +19,17 @@ class RemediationPlan(BaseModel):
     blast_radius: str = Field(description="low, medium, high")
 
 class LogEntry(BaseModel):
+    log_id: Optional[str] = None
+    prev_log_hash: Optional[str] = None
     timestamp: str
     incident_summary: str
     action_taken: str
     human_approved: bool
+    hash_version: Optional[str] = "v1"
+    log_hash: Optional[str] = None
+    anchor_status: Optional[str] = "pending"  # pending | anchored | failed | skipped
+    anchor_error: Optional[str] = None
+    anchored_at: Optional[str] = None
     stellar_receipt: Optional[str] = None  # Added for Web3 Audit Trail
 
 class ClusterState(TypedDict):
@@ -31,5 +38,6 @@ class ClusterState(TypedDict):
     diagnosis: str                              
     plan: Optional[RemediationPlan]             
     approved: bool                              
+    hitl_resolved: bool
     result: str                                 
     audit_log: Annotated[List[LogEntry], operator.add]

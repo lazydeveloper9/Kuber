@@ -1,6 +1,7 @@
 # AI and Logic Parsing
 langchain-ollama==0.2.0
 pydantic==2.9.2
+langgraph==0.2.39
 
 # API Server
 fastapi==0.115.0
