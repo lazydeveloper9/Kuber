@@ -42,7 +42,32 @@ k8swhisperer/
 ├── reset_demo.py        # 1-click test environment reset
 └── safe_restart.py      # Graceful Minikube reboot utility
 ```
+Blockchain Anchoring
 
+Audit log hashes are anchored on Stellar Testnet for external integrity proof.
+Includes anchor status tracking (pending, anchored, failed) and receipt verification APIs.
+Blockchain Verification APIs
+
+Verify full local hash-chain consistency.
+Verify per-log on-chain receipt and memo/hash match.
+Re-anchor logs when needed for recovery/retry workflows.
+Compliance & Readiness Reporting
+
+Built-in compliance report for all pipeline stages with pass/fail evidence.
+Useful for demos, audits, and operational governance checks.
+Smart Contract Capabilities
+Smart-Contract-Ready Audit Model
+
+Current design already produces deterministic, verifiable hash records suitable for contract-based attestation.
+On-Chain Policy Automation (Extensible)
+
+Architecture supports adding smart-contract policy enforcement, such as:
+approval quorum validation,
+time-locked or role-gated execution windows,
+immutable on-chain compliance attestations.
+Upgradeable Governance Path
+
+Existing blockchain proof flow can be extended to a dedicated smart contract layer (e.g., Soroban/EVM-compatible) without changing core incident-response logic.
 
 🛠️ Installation & Setup
 Prerequisites
