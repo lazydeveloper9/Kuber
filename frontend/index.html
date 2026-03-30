@@ -554,7 +554,7 @@
             <p class="text-sm text-theme-muted mt-1.5">Log of all autonomous and human-approved actions.</p>
         </div>
         <div class="glass rounded-2xl animate-flip delay-100 overflow-x-auto border border-[var(--panel-border)]">
-            <table class="w-full text-left text-sm whitespace-nowrap">
+            <table class="w-full text-left text-sm">
                 <thead class="bg-[var(--hover-bg)] text-[10px] text-theme-muted border-b border-[var(--panel-border)]">
                     <tr>
                         <th class="py-4 px-6 font-bold uppercase tracking-wider">Timestamp</th>
@@ -952,7 +952,7 @@
                     audit.innerHTML += `
                         <tr class="hover:bg-[var(--hover-bg)] transition-colors">
                             <td class="py-4 px-6 text-xs font-mono text-theme-muted">${ts}</td>
-                            <td class="py-4 px-6 font-mono text-xs font-bold text-blue-600 dark:text-blue-400">${incident}</td>
+                            <td class="py-4 px-6 font-mono text-xs font-bold text-blue-600 dark:text-blue-400 whitespace-normal break-words max-w-[320px]">${incident}</td>
                             <td class="py-4 px-6 text-xs font-bold ${approved ? 'text-emerald-500' : 'text-yellow-600 dark:text-yellow-500'}">${approved ? 'Approved' : 'Rejected/Auto'}</td>
                             <td class="py-4 px-6 text-xs text-theme-muted truncate max-w-[250px] font-medium">${action}</td>
                             <td class="py-4 px-6"><span class="${approved ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border-blue-200 dark:border-blue-500/30' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 border-amber-200 dark:border-amber-500/30'} border px-2 py-1 rounded text-[10px] font-bold tracking-wide">${approved ? 'HUMAN APPROVED' : 'NO APPROVAL'}</span></td>
@@ -1132,7 +1132,7 @@
                 newRow.className = "hover:bg-[var(--hover-bg)] transition-colors animate-flip bg-emerald-50 dark:bg-emerald-500/5";
                 newRow.innerHTML = `
                     <td class="py-4 px-6 text-xs font-mono text-theme-muted">${new Date().toLocaleTimeString()}</td>
-                    <td class="py-4 px-6 font-mono text-xs font-bold text-[var(--text-main)]">${targetName}</td>
+                    <td class="py-4 px-6 font-mono text-xs font-bold text-[var(--text-main)] whitespace-normal break-words max-w-[320px]">${targetName}</td>
                     <td class="py-4 px-6 text-xs font-bold text-emerald-600 dark:text-emerald-500">Executing (Background)</td>
                     <td class="py-4 px-6 text-xs text-theme-muted truncate max-w-[250px] font-medium">${actionDesc}</td>
                     <td class="py-4 px-6"><span class="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 px-2 py-1 rounded text-[10px] font-bold tracking-wide">HUMAN OVERRIDE</span></td>

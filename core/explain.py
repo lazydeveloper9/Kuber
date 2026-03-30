@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import os
@@ -7,6 +8,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from langchain_ollama import ChatOllama
+import requests
+from stellar_sdk import Asset, Keypair, Network, Server, TransactionBuilder
 
 try:
     from web3 import Web3
@@ -27,8 +30,16 @@ HASH_VERSION = "v2"
 AUDIT_LOG_FILE = "audit_log.json"
 AUDIT_SIDE_DB_FILE = os.getenv("K8S_SIDE_DB_FILE", "audit_side_db.jsonl")
 AUDIT_SLACK_WEBHOOK_URL = os.getenv("AUDIT_SLACK_WEBHOOK_URL", "").strip()
+STELLAR_HORIZON_URL = os.getenv("K8S_STELLAR_HORIZON_URL", "https://horizon-testnet.stellar.org").strip()
+FRIENDBOT_URL = os.getenv("K8S_STELLAR_FRIENDBOT_URL", "https://friendbot.stellar.org").strip()
 
-REQUIRE_STELLAR_SECRET = os.getenv("K8S_BLOCKCHAIN_PRIVATE_KEY_REQUIRED", "false").strip().lower() in {
+# Kept for server API compatibility.
+REQUIRE_STELLAR_SECRET = os.getenv("K8S_STELLAR_SECRET_REQUIRED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+REQUIRE_EVM_PRIVATE_KEY = os.getenv("K8S_BLOCKCHAIN_PRIVATE_KEY_REQUIRED", "false").strip().lower() in {
     "1",
     "true",
     "yes",
@@ -55,6 +66,7 @@ class BlockchainAuditor:
     """Hashes AI remediation actions, stores full payload in Side-DB, and records hash on-chain."""
 
     def __init__(self) -> None:
+        # Optional EVM contract mode
         self.rpc_url = os.getenv("K8S_BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8545").strip()
         self.chain_id = int(os.getenv("K8S_BLOCKCHAIN_CHAIN_ID", "31337"))
         self.private_key = os.getenv("K8S_BLOCKCHAIN_PRIVATE_KEY", "").strip()
@@ -65,12 +77,51 @@ class BlockchainAuditor:
         self.account = None
         self.contract = None
         self.contract_id = self.contract_address
+        self.last_action_hash: Optional[str] = None
+
+        # Default anchoring identity is Stellar (restores previous behavior).
+        self.stellar_secret = os.getenv("K8S_STELLAR_SECRET", "").strip()
+        if not self.contract_id:
+            self.contract_id = "stellar:testnet"
 
         if WEB3_AVAILABLE and self.private_key and self.contract_address:
             self.web3 = Web3(Web3.HTTPProvider(self.rpc_url))
             if self.web3.is_connected():
                 self.account = self.web3.eth.account.from_key(self.private_key)
                 self.contract = self.web3.eth.contract(address=Web3.to_checksum_address(self.contract_address), abi=self.abi)
+
+    def _get_stellar_keypair(self) -> Keypair:
+        if self.stellar_secret:
+            return Keypair.from_secret(self.stellar_secret)
+
+        if REQUIRE_STELLAR_SECRET:
+            raise RuntimeError("K8S_STELLAR_SECRET is required for Stellar anchoring")
+
+        kp = Keypair.random()
+        requests.get(f"{FRIENDBOT_URL}/?addr={kp.public_key}", timeout=15)
+        self.stellar_secret = kp.secret
+        os.environ["K8S_STELLAR_SECRET"] = kp.secret
+        return kp
+
+    def _notarize_via_stellar(self, action_hash: str) -> str:
+        server = Server(STELLAR_HORIZON_URL)
+        kp = self._get_stellar_keypair()
+        account = server.load_account(kp.public_key)
+
+        tx = (
+            TransactionBuilder(
+                source_account=account,
+                network_passphrase=Network.TESTNET_NETWORK_PASSPHRASE,
+                base_fee=100,
+            )
+            .add_hash_memo(bytes.fromhex(action_hash))
+            .append_payment_op(destination=kp.public_key, asset=Asset.native(), amount="0.0000001")
+            .set_timeout(30)
+            .build()
+        )
+        tx.sign(kp)
+        response = server.submit_transaction(tx)
+        return response["hash"]
 
     def _load_abi(self) -> list[dict]:
         abi_raw = os.getenv("K8S_BLOCKCHAIN_CONTRACT_ABI", "").strip()
@@ -103,6 +154,7 @@ class BlockchainAuditor:
     def notarize_action(self, plan_data: dict) -> str:
         """Hashes plan JSON, stores full payload in Side-DB, sends hash to contract, and returns tx id."""
         action_hash = self._sha256_hex(plan_data)
+        self.last_action_hash = action_hash
         side_db_ref = self._side_db_append({"plan_data": plan_data, "action_hash": action_hash})
 
         metadata = {
@@ -114,12 +166,14 @@ class BlockchainAuditor:
         }
         metadata_str = json.dumps(metadata, separators=(",", ":"), ensure_ascii=True)
 
-        if REQUIRE_STELLAR_SECRET and not self.private_key:
-            raise RuntimeError("K8S_BLOCKCHAIN_PRIVATE_KEY is required")
+        # Use EVM smart contract only when fully configured; otherwise default to Stellar.
+        evm_ready = WEB3_AVAILABLE and self.web3 and self.account and self.contract
 
-        if not WEB3_AVAILABLE or not self.web3 or not self.account or not self.contract:
-            # Development fallback: no node configured, still return deterministic pseudo tx id.
-            return "local-" + action_hash
+        if not evm_ready:
+            return self._notarize_via_stellar(action_hash)
+
+        if REQUIRE_EVM_PRIVATE_KEY and not self.private_key:
+            raise RuntimeError("K8S_BLOCKCHAIN_PRIVATE_KEY is required")
 
         try:
             nonce = self.web3.eth.get_transaction_count(self.account.address)
@@ -150,17 +204,37 @@ class BlockchainAuditor:
                 "tx_hash": tx_id,
             }
 
-        if not self.web3:
-            return {"ok": False, "reason": "web3_not_configured", "tx_hash": tx_id}
+        # EVM tx hashes are typically 0x-prefixed.
+        if tx_id.startswith("0x"):
+            if not self.web3:
+                return {"ok": False, "reason": "web3_not_configured", "tx_hash": tx_id}
+            try:
+                receipt = self.web3.eth.get_transaction_receipt(tx_id)
+                success = int(receipt.get("status", 0)) == 1
+                return {
+                    "ok": success,
+                    "reason": "ok" if success else "tx_failed",
+                    "tx_hash": tx_id,
+                    "block_number": int(receipt.get("blockNumber", 0)),
+                }
+            except Exception as e:
+                return {"ok": False, "reason": str(e), "tx_hash": tx_id}
 
+        # Otherwise validate as Stellar hash-memo receipt.
         try:
-            receipt = self.web3.eth.get_transaction_receipt(tx_id)
-            success = int(receipt.get("status", 0)) == 1
+            server = Server(STELLAR_HORIZON_URL)
+            tx = server.transactions().transaction(tx_id).call()
+            memo_type = tx.get("memo_type")
+            memo_value = tx.get("memo")
+            expected_memo = base64.b64encode(bytes.fromhex(expected_action_hash)).decode("ascii")
+            ok = memo_type == "hash" and memo_value == expected_memo
             return {
-                "ok": success,
-                "reason": "ok" if success else "tx_failed",
+                "ok": ok,
+                "reason": "ok" if ok else "memo_mismatch",
                 "tx_hash": tx_id,
-                "block_number": int(receipt.get("blockNumber", 0)),
+                "memo_type": memo_type,
+                "memo": memo_value,
+                "expected_memo": expected_memo,
             }
         except Exception as e:
             return {"ok": False, "reason": str(e), "tx_hash": tx_id}
@@ -244,7 +318,7 @@ def _anchor_log_background(log_id: str, log_hash: str, log_file: str = AUDIT_LOG
                 "anchored_at": datetime.now(timezone.utc).isoformat(),
                 "anchor_error": None,
                 "contract_id": auditor.contract_id,
-                "action_hash": log_hash,
+                "action_hash": auditor.last_action_hash or log_hash,
             },
             log_file,
         )
@@ -266,14 +340,14 @@ def queue_stellar_anchor_for_log(log_entry_dict: dict, log_file: str = AUDIT_LOG
     thread = threading.Thread(
         target=_anchor_log_background,
         args=(log_entry_dict["log_id"], log_entry_dict["log_hash"], log_file),
-        daemon=True,
+        daemon=False,
     )
     thread.start()
 
 
 def verify_stellar_receipt(log_entry_dict: dict) -> dict:
     tx_hash = log_entry_dict.get("stellar_receipt")
-    expected_action_hash = log_entry_dict.get("log_hash")
+    expected_action_hash = log_entry_dict.get("action_hash") or log_entry_dict.get("log_hash")
     auditor = BlockchainAuditor()
     return auditor.verify_receipt(tx_hash, expected_action_hash)
 
@@ -317,8 +391,6 @@ def _post_structured_slack_audit(log_entry_dict: dict) -> None:
     if not AUDIT_SLACK_WEBHOOK_URL:
         return
     try:
-        import requests
-
         payload = {
             "text": "K8sWhisperer Audit Summary",
             "blocks": [
