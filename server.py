@@ -493,7 +493,9 @@ def blockchain_status() -> JSONResponse:
     pending = sum(1 for item in logs if item.get("anchor_status") == "pending")
     failed = sum(1 for item in logs if item.get("anchor_status") == "failed")
     anchored = sum(1 for item in logs if item.get("anchor_status") == "anchored")
-    has_secret = bool(os.getenv("K8S_STELLAR_SECRET", "").strip())
+    has_secret = bool(
+        os.getenv("K8S_BLOCKCHAIN_PRIVATE_KEY", "").strip() or os.getenv("K8S_STELLAR_SECRET", "").strip()
+    )
     return JSONResponse(
         content={
             "require_stellar_secret": REQUIRE_STELLAR_SECRET,

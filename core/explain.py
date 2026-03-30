@@ -1,31 +1,174 @@
-import base64
 import hashlib
 import json
 import os
 import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
-import requests
-from stellar_sdk import Asset, Keypair, Network, Server, TransactionBuilder
 from langchain_ollama import ChatOllama
+
+try:
+    from web3 import Web3
+    from web3.exceptions import Web3Exception
+
+    WEB3_AVAILABLE = True
+except Exception:  # pragma: no cover - runtime environment dependent
+    Web3 = None
+
+    class Web3Exception(Exception):
+        pass
+
+    WEB3_AVAILABLE = False
 
 from .state import ClusterState, LogEntry
 
-STELLAR_HORIZON_URL = "https://horizon-testnet.stellar.org"
-FRIENDBOT_URL = "https://friendbot.stellar.org"
-HASH_VERSION = "v1"
+HASH_VERSION = "v2"
 AUDIT_LOG_FILE = "audit_log.json"
+AUDIT_SIDE_DB_FILE = os.getenv("K8S_SIDE_DB_FILE", "audit_side_db.jsonl")
 AUDIT_SLACK_WEBHOOK_URL = os.getenv("AUDIT_SLACK_WEBHOOK_URL", "").strip()
-REQUIRE_STELLAR_SECRET = os.getenv("K8S_STELLAR_SECRET_REQUIRED", "false").strip().lower() in {"1", "true", "yes"}
+
+REQUIRE_STELLAR_SECRET = os.getenv("K8S_BLOCKCHAIN_PRIVATE_KEY_REQUIRED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 _AUDIT_LOCK = threading.Lock()
 _summary_llm = ChatOllama(model="llama3.2", temperature=0)
 
+DEFAULT_CONTRACT_ABI = [
+    {
+        "inputs": [
+            {"internalType": "bytes32", "name": "actionHash", "type": "bytes32"},
+            {"internalType": "string", "name": "metadata", "type": "string"},
+        ],
+        "name": "recordAction",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    }
+]
 
-def _canonical_json(obj: Any) -> str:
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+class BlockchainAuditor:
+    """Hashes AI remediation actions, stores full payload in Side-DB, and records hash on-chain."""
+
+    def __init__(self) -> None:
+        self.rpc_url = os.getenv("K8S_BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8545").strip()
+        self.chain_id = int(os.getenv("K8S_BLOCKCHAIN_CHAIN_ID", "31337"))
+        self.private_key = os.getenv("K8S_BLOCKCHAIN_PRIVATE_KEY", "").strip()
+        self.contract_address = os.getenv("K8S_BLOCKCHAIN_CONTRACT_ADDRESS", "").strip()
+        self.abi = self._load_abi()
+
+        self.web3: Optional[Web3] = None
+        self.account = None
+        self.contract = None
+        self.contract_id = self.contract_address
+
+        if WEB3_AVAILABLE and self.private_key and self.contract_address:
+            self.web3 = Web3(Web3.HTTPProvider(self.rpc_url))
+            if self.web3.is_connected():
+                self.account = self.web3.eth.account.from_key(self.private_key)
+                self.contract = self.web3.eth.contract(address=Web3.to_checksum_address(self.contract_address), abi=self.abi)
+
+    def _load_abi(self) -> list[dict]:
+        abi_raw = os.getenv("K8S_BLOCKCHAIN_CONTRACT_ABI", "").strip()
+        if not abi_raw:
+            return DEFAULT_CONTRACT_ABI
+        try:
+            abi = json.loads(abi_raw)
+            if isinstance(abi, list):
+                return abi
+        except json.JSONDecodeError:
+            pass
+        return DEFAULT_CONTRACT_ABI
+
+    def _canonical_json(self, obj: Any) -> str:
+        return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+    def _sha256_hex(self, payload: dict) -> str:
+        return hashlib.sha256(self._canonical_json(payload).encode("utf-8")).hexdigest()
+
+    def _side_db_append(self, payload: dict) -> str:
+        os.makedirs(os.path.dirname(AUDIT_SIDE_DB_FILE) or ".", exist_ok=True)
+        row = {
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            **payload,
+        }
+        with open(AUDIT_SIDE_DB_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=True) + "\n")
+        return AUDIT_SIDE_DB_FILE
+
+    def notarize_action(self, plan_data: dict) -> str:
+        """Hashes plan JSON, stores full payload in Side-DB, sends hash to contract, and returns tx id."""
+        action_hash = self._sha256_hex(plan_data)
+        side_db_ref = self._side_db_append({"plan_data": plan_data, "action_hash": action_hash})
+
+        metadata = {
+            "target_resource": plan_data.get("target_resource", "unknown"),
+            "action_type": plan_data.get("action_type", "unknown"),
+            "status": plan_data.get("status", "unknown"),
+            "timestamp": plan_data.get("timestamp"),
+            "side_db_ref": side_db_ref,
+        }
+        metadata_str = json.dumps(metadata, separators=(",", ":"), ensure_ascii=True)
+
+        if REQUIRE_STELLAR_SECRET and not self.private_key:
+            raise RuntimeError("K8S_BLOCKCHAIN_PRIVATE_KEY is required")
+
+        if not WEB3_AVAILABLE or not self.web3 or not self.account or not self.contract:
+            # Development fallback: no node configured, still return deterministic pseudo tx id.
+            return "local-" + action_hash
+
+        try:
+            nonce = self.web3.eth.get_transaction_count(self.account.address)
+            gas_price = self.web3.eth.gas_price
+            tx = self.contract.functions.recordAction(bytes.fromhex(action_hash), metadata_str).build_transaction(
+                {
+                    "chainId": self.chain_id,
+                    "from": self.account.address,
+                    "nonce": nonce,
+                    "gas": 300000,
+                    "gasPrice": gas_price,
+                }
+            )
+            signed = self.account.sign_transaction(tx)
+            tx_hash = self.web3.eth.send_raw_transaction(signed.raw_transaction)
+            return tx_hash.hex()
+        except Web3Exception as e:
+            raise RuntimeError(f"Blockchain transaction failed: {e}") from e
+
+    def verify_receipt(self, tx_id: str, expected_action_hash: str) -> dict:
+        if not tx_id:
+            return {"ok": False, "reason": "missing_tx_id"}
+
+        if tx_id.startswith("local-"):
+            return {
+                "ok": tx_id == f"local-{expected_action_hash}",
+                "reason": "ok" if tx_id == f"local-{expected_action_hash}" else "local_hash_mismatch",
+                "tx_hash": tx_id,
+            }
+
+        if not self.web3:
+            return {"ok": False, "reason": "web3_not_configured", "tx_hash": tx_id}
+
+        try:
+            receipt = self.web3.eth.get_transaction_receipt(tx_id)
+            success = int(receipt.get("status", 0)) == 1
+            return {
+                "ok": success,
+                "reason": "ok" if success else "tx_failed",
+                "tx_hash": tx_id,
+                "block_number": int(receipt.get("blockNumber", 0)),
+            }
+        except Exception as e:
+            return {"ok": False, "reason": str(e), "tx_hash": tx_id}
+
+
+def notarize_action(plan_data: dict) -> str:
+    """Public helper requested by architecture spec: hashes, stores Side-DB payload, and returns tx id."""
+    return BlockchainAuditor().notarize_action(plan_data)
 
 
 def _load_audit_logs(log_file: str = AUDIT_LOG_FILE) -> list:
@@ -58,43 +201,18 @@ def compute_log_hash(log_entry_dict: dict) -> str:
         "human_approved": log_entry_dict.get("human_approved"),
         "hash_version": log_entry_dict.get("hash_version", HASH_VERSION),
     }
-    return hashlib.sha256(_canonical_json(canonical_payload).encode("utf-8")).hexdigest()
+    return hashlib.sha256(json.dumps(canonical_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
-def _get_stellar_keypair() -> Keypair:
-    secret = os.getenv("K8S_STELLAR_SECRET", "").strip()
-    if secret:
-        return Keypair.from_secret(secret)
-
-    if REQUIRE_STELLAR_SECRET:
-        raise RuntimeError("K8S_STELLAR_SECRET is required for deterministic blockchain identity")
-
-    kp = Keypair.random()
-    print(f"   [Stellar] Provisioning non-deterministic Testnet account: {kp.public_key}")
-    requests.get(f"{FRIENDBOT_URL}/?addr={kp.public_key}", timeout=15)
-    os.environ["K8S_STELLAR_SECRET"] = kp.secret
-    return kp
-
-
-def anchor_hash_to_stellar(log_hash: str) -> str:
-    server = Server(STELLAR_HORIZON_URL)
-    kp = _get_stellar_keypair()
-    account = server.load_account(kp.public_key)
-
-    tx = (
-        TransactionBuilder(
-            source_account=account,
-            network_passphrase=Network.TESTNET_NETWORK_PASSPHRASE,
-            base_fee=100,
-        )
-        .add_hash_memo(bytes.fromhex(log_hash))
-        .append_payment_op(destination=kp.public_key, asset=Asset.native(), amount="0.0000001")
-        .set_timeout(30)
-        .build()
-    )
-    tx.sign(kp)
-    response = server.submit_transaction(tx)
-    return response["hash"]
+def _infer_plan_data_from_log(log_entry_dict: dict) -> dict:
+    return {
+        "target_resource": log_entry_dict.get("target_resource", "unknown"),
+        "action_type": log_entry_dict.get("action_type", "audit_action"),
+        "timestamp": log_entry_dict.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        "status": "approved" if log_entry_dict.get("human_approved") else "rejected",
+        "log_id": log_entry_dict.get("log_id"),
+        "log_hash": log_entry_dict.get("log_hash"),
+    }
 
 
 def _update_log_entry(log_id: str, updates: dict, log_file: str = AUDIT_LOG_FILE) -> None:
@@ -108,8 +226,16 @@ def _update_log_entry(log_id: str, updates: dict, log_file: str = AUDIT_LOG_FILE
 
 
 def _anchor_log_background(log_id: str, log_hash: str, log_file: str = AUDIT_LOG_FILE) -> None:
+    auditor = BlockchainAuditor()
     try:
-        tx_hash = anchor_hash_to_stellar(log_hash)
+        logs = _load_audit_logs(log_file)
+        entry = next((item for item in logs if item.get("log_id") == log_id), None)
+        if not entry:
+            raise RuntimeError("log_entry_not_found")
+
+        plan_data = _infer_plan_data_from_log(entry)
+        tx_hash = auditor.notarize_action(plan_data)
+
         _update_log_entry(
             log_id,
             {
@@ -117,10 +243,12 @@ def _anchor_log_background(log_id: str, log_hash: str, log_file: str = AUDIT_LOG
                 "anchor_status": "anchored",
                 "anchored_at": datetime.now(timezone.utc).isoformat(),
                 "anchor_error": None,
+                "contract_id": auditor.contract_id,
+                "action_hash": log_hash,
             },
             log_file,
         )
-        print(f"   🔗 [Stellar] Anchored log_id={log_id} tx={tx_hash}")
+        print(f"   🔗 [Contract] Anchored log_id={log_id} tx={tx_hash}")
     except Exception as e:
         _update_log_entry(
             log_id,
@@ -131,7 +259,7 @@ def _anchor_log_background(log_id: str, log_hash: str, log_file: str = AUDIT_LOG
             },
             log_file,
         )
-        print(f"   ❌ [Stellar] Failed to anchor log_id={log_id}: {e}")
+        print(f"   ❌ [Contract] Failed to anchor log_id={log_id}: {e}")
 
 
 def queue_stellar_anchor_for_log(log_entry_dict: dict, log_file: str = AUDIT_LOG_FILE) -> None:
@@ -144,29 +272,10 @@ def queue_stellar_anchor_for_log(log_entry_dict: dict, log_file: str = AUDIT_LOG
 
 
 def verify_stellar_receipt(log_entry_dict: dict) -> dict:
-    log_hash = log_entry_dict.get("log_hash")
     tx_hash = log_entry_dict.get("stellar_receipt")
-    if not log_hash:
-        return {"ok": False, "reason": "missing_log_hash"}
-    if not tx_hash:
-        return {"ok": False, "reason": "missing_stellar_receipt"}
-
-    server = Server(STELLAR_HORIZON_URL)
-    tx = server.transactions().transaction(tx_hash).call()
-
-    memo_type = tx.get("memo_type")
-    memo_value = tx.get("memo")
-    expected_memo = base64.b64encode(bytes.fromhex(log_hash)).decode("ascii")
-    memo_matches = memo_type == "hash" and memo_value == expected_memo
-
-    return {
-        "ok": memo_matches,
-        "reason": "ok" if memo_matches else "memo_mismatch",
-        "memo_type": memo_type,
-        "memo": memo_value,
-        "expected_memo": expected_memo,
-        "tx_hash": tx_hash,
-    }
+    expected_action_hash = log_entry_dict.get("log_hash")
+    auditor = BlockchainAuditor()
+    return auditor.verify_receipt(tx_hash, expected_action_hash)
 
 
 def _generate_human_summary(state: ClusterState) -> str:
@@ -207,43 +316,44 @@ def _generate_human_summary(state: ClusterState) -> str:
 def _post_structured_slack_audit(log_entry_dict: dict) -> None:
     if not AUDIT_SLACK_WEBHOOK_URL:
         return
-
-    payload = {
-        "text": "K8sWhisperer Audit Summary",
-        "blocks": [
-            {
-                "type": "header",
-                "text": {"type": "plain_text", "text": "K8sWhisperer Audit Summary"},
-            },
-            {
-                "type": "section",
-                "fields": [
-                    {"type": "mrkdwn", "text": f"*Log ID*\n{log_entry_dict.get('log_id')}"},
-                    {"type": "mrkdwn", "text": f"*Approved*\n{log_entry_dict.get('human_approved')}"},
-                    {"type": "mrkdwn", "text": f"*Anchor Status*\n{log_entry_dict.get('anchor_status')}"},
-                    {"type": "mrkdwn", "text": f"*Timestamp*\n{log_entry_dict.get('timestamp')}"},
-                ],
-            },
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Summary*\n{log_entry_dict.get('incident_summary')}"},
-            },
-        ],
-    }
     try:
+        import requests
+
+        payload = {
+            "text": "K8sWhisperer Audit Summary",
+            "blocks": [
+                {
+                    "type": "header",
+                    "text": {"type": "plain_text", "text": "K8sWhisperer Audit Summary"},
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {"type": "mrkdwn", "text": f"*Log ID*\n{log_entry_dict.get('log_id')}"},
+                        {"type": "mrkdwn", "text": f"*Approved*\n{log_entry_dict.get('human_approved')}"},
+                        {"type": "mrkdwn", "text": f"*Anchor Status*\n{log_entry_dict.get('anchor_status')}"},
+                        {"type": "mrkdwn", "text": f"*Timestamp*\n{log_entry_dict.get('timestamp')}"},
+                    ],
+                },
+            ],
+        }
         requests.post(AUDIT_SLACK_WEBHOOK_URL, json=payload, timeout=10)
     except Exception:
         pass
 
 
 def explain_node(state: ClusterState) -> dict:
-    """06 Explain & Log: Writes a human-readable log and anchors immutable proof asynchronously."""
+    """06 Explain & Log: Hashes action plan, stores full payload in Side-DB, notarizes hash via smart contract."""
     print(">>> [06] Generating Audit Trail...")
 
     human_summary = _generate_human_summary(state)
 
     existing_logs = _load_audit_logs(AUDIT_LOG_FILE)
     prev_hash = existing_logs[-1].get("log_hash") if existing_logs else None
+
+    plan = state.get("plan")
+    action_type = plan.action_type if plan else "unknown"
+    target_resource = plan.target_resource if plan else "unknown"
 
     log_entry = LogEntry(
         log_id=str(uuid.uuid4()),
@@ -257,6 +367,8 @@ def explain_node(state: ClusterState) -> dict:
     )
 
     entry = log_entry.model_dump()
+    entry["action_type"] = action_type
+    entry["target_resource"] = target_resource
     entry["log_hash"] = compute_log_hash(entry)
 
     with _AUDIT_LOCK:
