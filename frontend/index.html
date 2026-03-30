@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K8sWhisperer | Premium AI Agent</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
+
+        /* Premium Theme Variables */
+        :root[data-theme="light"] {
+            --bg-main: #f8fafc;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --panel-bg: rgba(255, 255, 255, 0.85);
+            --panel-border: rgba(0, 0, 0, 0.06);
+            --panel-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 0 3px rgba(0, 0, 0, 0.02);
+            --terminal-bg: #f1f5f9;
+            --terminal-border: #e2e8f0;
+            --hover-bg: #f1f5f9;
+            --badge-bg: #f1f5f9;
+            --toast-bg: #ffffff;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-main: #09090b;
+            --text-main: #fafafa;
+            --text-muted: #a1a1aa;
+            --panel-bg: rgba(24, 24, 27, 0.65);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --panel-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4), 0 0 5px rgba(0, 0, 0, 0.1);
+            --terminal-bg: #000000;
+            --terminal-border: #27272a;
+            --hover-bg: rgba(255, 255, 255, 0.05);
+            --badge-bg: rgba(255, 255, 255, 0.1);
+            --toast-bg: #18181b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background-color 0.4s ease, color 0.4s ease;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-mono {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Premium Glassmorphism */
+        .glass {
+            background: var(--panel-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--panel-border);
+            box-shadow: var(--panel-shadow);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .glass:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        /* Advanced 3D Flip Animations */
+        @keyframes flipIn {
+            0% {
+                opacity: 0;
+                transform: perspective(1200px) rotateX(-15deg) translateY(20px) scale(0.98);
+            }
+
+            100% {
+                opacity: 1;
+                transform: perspective(1200px) rotateX(0deg) translateY(0) scale(1);
+            }
+        }
+
+        .animate-flip {
+            animation: flipIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            opacity: 0;
+            transform-style: preserve-3d;
+        }
+
+        .delay-100 {
+            animation-delay: 75ms;
+        }
+
+        .delay-200 {
+            animation-delay: 150ms;
+        }
+
+        .delay-300 {
+            animation-delay: 225ms;
+        }
+
+        /* Toast Animation */
+        @keyframes slideInRight {
+            0% {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            0% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideInRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        .toast-exit {
+            animation: fadeOut 0.4s ease forwards;
+        }
+
+        /* Control Center (CC) Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #10b981;
+        }
+
+        .toggle-checkbox:checked+.toggle-label {
+            background-color: #10b981;
+        }
+
+        /* Image Zoom Transition */
+        .img-zoom {
+            transition: transform 10s ease-out;
+        }
+
+        .glass:hover .img-zoom {
+            transform: scale(1.1);
+        }
+
+        /* View Management */
+        .view-section {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .view-section.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .text-theme-muted {
+            color: var(--text-muted);
+        }
+
+        .btn-primary {
+            background-color: var(--text-main);
+            color: var(--bg-main);
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.85;
+            transform: translateY(-1px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--panel-border);
+            border-radius: 4px;
+        }
+
+        #particles-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: -1;
+            display: none;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            animation: floatUp 15s linear infinite;
+        }
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(100vh) scale(0.5);
+                opacity: 0;
+            }
+
+            20% {
+                opacity: 0.3;
+            }
+
+            80% {
+                opacity: 0.3;
+            }
+
+            100% {
+                transform: translateY(-10vh) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        /* FIXED Chart Canvas Wrapper */
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            flex-grow: 1;
+            min-height: 220px;
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8">
+
+    <div id="particles-container"></div>
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[100] flex flex-col gap-3"></div>
+
+    <nav
+        class="flex flex-col md:flex-row justify-between items-center mb-8 pb-4 border-b border-[var(--panel-border)] animate-flip relative z-40">
+        <div class="flex items-center gap-3">
+            <div class="p-2.5 border border-blue-500/30 bg-blue-500/10 rounded-xl shadow-inner">
+                <i data-lucide="command" class="w-6 h-6 text-blue-600 dark:text-blue-400"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">K8sWhisperer</h1>
+                <p class="text-[10px] text-theme-muted font-mono uppercase tracking-widest mt-0.5 font-bold">Autopilot
+                    AI</p>
+            </div>
+        </div>
+
+        <div class="flex gap-8 text-sm mt-6 md:mt-0 glass px-8 py-3 rounded-full font-medium">
+            <span onclick="switchView('dashboard')" id="nav-dashboard"
+                class="text-blue-500 cursor-pointer border-b-2 border-blue-500 pb-1">Dashboard</span>
+            <span onclick="switchView('analysis')" id="nav-analysis"
+                class="text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors">Analysis</span>
+            <span onclick="switchView('approval')" id="nav-approval"
+                class="text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors flex items-center gap-2">
+                Queue <span id="queue-badge"
+                    class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm"></span>
+            </span>
+            <span onclick="switchView('audit')" id="nav-audit"
+                class="text-theme-muted hover:text-[var(--text-main)] cursor-pointer pb-1 transition-colors">Audit
+                Trail</span>
+        </div>
+
+        <div class="flex items-center gap-4 mt-4 md:mt-0">
+            <button onclick="toggleTheme()"
+                class="glass p-2.5 rounded-xl hover:bg-[var(--hover-bg)] transition-colors cursor-pointer border-[var(--panel-border)]">
+                <i data-lucide="moon" id="theme-icon" class="w-4 h-4 text-slate-600 dark:text-slate-300"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main id="view-dashboard" class="view-section active flex-1 max-w-7xl mx-auto w-full">
+
+        <div
+            class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 animate-flip relative z-50 gap-4">
+            <div class="relative w-full lg:w-auto">
+                <button id="cluster-btn" onclick="toggleDropdown()"
+                    class="glass px-5 py-3 rounded-xl flex items-center gap-4 w-full lg:min-w-[300px] justify-between cursor-pointer border-[var(--panel-border)] hover:border-blue-500/50 shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div id="cluster-status-dot"
+                            class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                        <div class="text-left">
+                            <p id="selected-cluster-name" class="font-mono text-sm font-bold leading-none mb-1">
+                                prod-us-east-1-eks</p>
+                            <p id="selected-cluster-env"
+                                class="text-[10px] text-theme-muted uppercase tracking-wider leading-none">Production •
+                                AWS</p>
+                        </div>
+                    </div>
+                    <i data-lucide="chevrons-up-down" class="w-4 h-4 text-theme-muted" id="dropdown-icon"></i>
+                </button>
+
+                <div id="cluster-menu"
+                    class="absolute top-full mt-2 w-full glass rounded-xl overflow-hidden hidden transform opacity-0 -translate-y-2 transition-all duration-200 z-50 shadow-2xl border border-[var(--panel-border)]">
+                    <div class="p-1.5 space-y-1">
+                        <div onclick="selectCluster('prod-us-east-1-eks', 'Production • AWS', 'emerald', 'high')"
+                            class="p-2.5 hover:bg-[var(--hover-bg)] rounded-lg cursor-pointer flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            <p class="font-mono text-sm font-semibold">prod-us-east-1-eks</p>
+                        </div>
+                        <div onclick="selectCluster('staging-us-west-gke', 'Staging • GCP', 'yellow', 'medium')"
+                            class="p-2.5 hover:bg-[var(--hover-bg)] rounded-lg cursor-pointer flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                            <p class="font-mono text-sm font-semibold">staging-us-west-gke</p>
+                        </div>
+                        <div onclick="selectCluster('dev-cluster-local', 'Dev • Minikube', 'blue', 'low')"
+                            class="p-2.5 hover:bg-[var(--hover-bg)] rounded-lg cursor-pointer flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                            <p class="font-mono text-sm font-semibold">dev-cluster-local</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0">
+                <div class="glass px-4 py-2.5 rounded-xl flex items-center gap-3 shrink-0">
+                    <span class="text-xs font-bold text-theme-muted">Auto-Approve Low Risk</span>
+                    <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="toggle1" id="toggle1" checked
+                            onchange="showToast('Auto-Approve policy updated.', 'success')"
+                            class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer transition-colors duration-200 z-10" />
+                        <label for="toggle1"
+                            class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+                <div class="glass px-4 py-2.5 rounded-xl flex items-center gap-3 shrink-0">
+                    <span class="text-xs font-bold text-theme-muted">Audit Logging</span>
+                    <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="toggle2" id="toggle2" checked
+                            onchange="showToast('Audit logging configuration saved.', 'success')"
+                            class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer transition-colors duration-200 z-10" />
+                        <label for="toggle2"
+                            class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 relative z-10">
+            <div class="glass p-5 rounded-2xl animate-flip">
+                <p
+                    class="text-theme-muted text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <i data-lucide="box" class="w-3.5 h-3.5 text-blue-500"></i> Active Pods</p>
+                <p class="text-3xl font-black text-[var(--text-main)]" id="metric-pods">--</p>
+            </div>
+            <div class="glass p-5 rounded-2xl animate-flip delay-100">
+                <p
+                    class="text-theme-muted text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <i data-lucide="server" class="w-3.5 h-3.5 text-blue-500"></i> Worker Nodes</p>
+                <p class="text-3xl font-black text-[var(--text-main)]" id="metric-nodes">--</p>
+            </div>
+            <div class="glass p-5 rounded-2xl animate-flip delay-200">
+                <p
+                    class="text-theme-muted text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-500"></i> Anomalies (24h)</p>
+                <p class="text-3xl font-black text-[var(--text-main)]" id="metric-anomalies">--</p>
+            </div>
+            <div class="glass p-5 rounded-2xl animate-flip delay-300 cursor-pointer hover:border-red-500/50 transition-colors border-b-4 border-b-red-500"
+                onclick="switchView('approval')">
+                <p
+                    class="text-red-500 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center justify-between">
+                    Safety Gate <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+                </p>
+                <div class="flex items-baseline gap-2">
+                    <p class="text-3xl font-black text-red-500" id="metric-pending">--</p>
+                    <span class="text-[10px] text-red-500/70 font-bold uppercase tracking-widest">Pending</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10">
+            <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 animate-flip delay-200">
+                <div class="glass p-5 rounded-2xl flex flex-col h-[340px]">
+                    <h3 class="text-[10px] font-bold uppercase tracking-widest text-theme-muted mb-4">Resource Load
+                        Spikes</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="usageChart"
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                    </div>
+                </div>
+                <div class="glass p-5 rounded-2xl flex flex-col h-[340px]">
+                    <h3 class="text-[10px] font-bold uppercase tracking-widest text-theme-muted mb-4">Anomaly
+                        Demographics</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="anomalyChart"
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="glass rounded-2xl overflow-hidden animate-flip delay-300 flex flex-col h-full min-h-[340px] lg:h-[340px]">
+                <div
+                    class="bg-[var(--terminal-border)] px-4 py-3 flex justify-between items-center border-b border-[var(--panel-border)]">
+                    <span
+                        class="text-[10px] font-mono font-bold text-theme-muted tracking-wider">langgraph-engine.sh</span>
+                    <div class="flex gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-400/50"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-400/50"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-400/50"></div>
+                    </div>
+                </div>
+                <div class="p-4 flex-1 overflow-y-auto font-mono text-[11px] leading-loose"
+                    style="background: var(--terminal-bg);">
+                    <div id="terminal-body" class="space-y-1 text-slate-700 dark:text-slate-300"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="view-analysis" class="view-section flex-1 max-w-6xl mx-auto w-full">
+        <div class="mb-8 animate-flip">
+            <h2 class="text-2xl font-bold tracking-tight">Root Cause Analysis</h2>
+            <p class="text-sm text-theme-muted mt-1">LLM-synthesized log extraction, traffic correlation, and
+                remediation planning.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="flex flex-col gap-6 animate-flip">
+                <div class="glass rounded-2xl overflow-hidden flex flex-col border border-[var(--panel-border)]">
+                    <div class="relative h-48 overflow-hidden bg-black/5">
+                        <img id="analysis-img" src="" class="w-full h-full object-cover opacity-90 img-zoom"
+                            alt="Telemetry Visual">
+                        <div class="absolute inset-0 bg-gradient-to-t from-[var(--panel-bg)] to-transparent"></div>
+                        <div class="absolute bottom-4 left-6 flex items-center gap-3">
+                            <div
+                                class="p-2 bg-[var(--panel-bg)] backdrop-blur-md rounded-lg border border-[var(--panel-border)] shadow-sm">
+                                <i data-lucide="microscope" class="w-5 h-5 text-blue-500"></i>
+                            </div>
+                            <h2 class="text-lg font-bold">Diagnostic Evidence</h2>
+                        </div>
+                    </div>
+
+                    <div class="p-6 space-y-6 flex-1">
+                        <div class="grid grid-cols-2 gap-4 border-b border-[var(--panel-border)] pb-6">
+                            <div>
+                                <p class="text-[10px] text-theme-muted font-bold uppercase tracking-widest mb-2">Target
+                                    Resource</p>
+                                <p id="analysis-target" class="text-sm font-mono font-bold text-[var(--text-main)]"></p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-theme-muted font-bold uppercase tracking-widest mb-2">Anomaly
+                                    Trigger</p>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                                    <p id="analysis-type" class="text-sm font-bold text-red-500"></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-theme-muted font-bold uppercase tracking-widest mb-3"><i
+                                    data-lucide="file-json" class="w-3.5 h-3.5 inline"></i> Extracted Payload</p>
+                            <p id="analysis-desc"
+                                class="text-sm text-theme-muted bg-[var(--badge-bg)] p-4 rounded-xl border border-[var(--panel-border)] leading-relaxed font-mono shadow-inner">
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="glass p-5 rounded-2xl border-l-4 border-l-blue-500 flex items-start gap-4 bg-[var(--hover-bg)]">
+                    <div class="p-2.5 bg-blue-500/10 rounded-xl shrink-0 border border-blue-500/20">
+                        <i data-lucide="git-merge" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold flex items-center gap-2 mb-1.5">
+                            Telemetry Correlation
+                            <span
+                                class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 uppercase border border-blue-500/20">Live</span>
+                        </h4>
+                        <p class="text-xs text-theme-muted font-medium leading-relaxed" id="traffic-explanation">
+                            Scanning...
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="glass rounded-2xl p-8 animate-flip delay-100 flex flex-col justify-between border-t-4 border-t-emerald-500 h-full">
+                <div>
+                    <div class="flex items-center justify-between mb-8 border-b border-[var(--panel-border)] pb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-emerald-500/10 rounded-lg">
+                                <i data-lucide="lightbulb" class="w-5 h-5 text-emerald-500"></i>
+                            </div>
+                            <h3 class="text-lg font-bold">Remediation Plan</h3>
+                        </div>
+                        <span
+                            class="text-[10px] font-mono bg-[var(--badge-bg)] px-3 py-1.5 rounded-lg font-bold border border-[var(--panel-border)]">Conf:
+                            <span id="analysis-conf" class="text-emerald-500">--</span></span>
+                    </div>
+
+                    <div class="mb-8">
+                        <p class="text-[10px] text-theme-muted font-bold uppercase tracking-widest mb-3">Proposed Action
+                            Sequence</p>
+                        <p id="analysis-action"
+                            class="text-sm font-semibold leading-relaxed bg-emerald-50 dark:bg-emerald-500/5 p-5 rounded-xl border border-emerald-100 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-200 shadow-sm">
+                        </p>
+                    </div>
+
+                    <div class="mb-10">
+                        <p class="text-[10px] text-theme-muted font-bold uppercase tracking-widest mb-2">Blast Radius
+                            Check</p>
+                        <div class="flex items-center gap-4">
+                            <p id="analysis-blast" class="text-3xl font-black">--</p>
+                            <span
+                                class="text-xs text-theme-muted font-medium bg-[var(--hover-bg)] px-3 py-1.5 rounded-lg border border-[var(--panel-border)]">State
+                                modification requires human override.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="switchView('approval')"
+                    class="w-full btn-primary font-bold text-sm py-4 rounded-xl flex justify-center items-center gap-2 shadow-lg">
+                    Review in HITL Queue <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <main id="view-approval" class="view-section flex-1 max-w-4xl mx-auto w-full">
+        <div class="mb-8 animate-flip flex justify-between items-end border-b border-[var(--panel-border)] pb-6">
+            <div>
+                <h2 class="text-2xl font-bold flex items-center gap-3"><i data-lucide="user-check"
+                        class="text-red-500 w-6 h-6"></i> Human-In-The-Loop Queue</h2>
+                <p class="text-sm text-theme-muted mt-1.5">Safety Gate triggered. Agent execution is paused pending
+                    manual review.</p>
+            </div>
+        </div>
+        <div class="space-y-4" id="queue-container"></div>
+    </main>
+
+    <main id="view-audit" class="view-section flex-1 max-w-5xl mx-auto w-full">
+        <div class="mb-8 animate-flip border-b border-[var(--panel-border)] pb-6">
+            <h2 class="text-2xl font-bold flex items-center gap-3"><i data-lucide="clipboard-list"
+                    class="text-blue-500 w-6 h-6"></i> Immutable Audit Trail</h2>
+            <p class="text-sm text-theme-muted mt-1.5">Log of all autonomous and human-approved actions.</p>
+        </div>
+        <div class="glass rounded-2xl animate-flip delay-100 overflow-x-auto border border-[var(--panel-border)]">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-[var(--hover-bg)] text-[10px] text-theme-muted border-b border-[var(--panel-border)]">
+                    <tr>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Timestamp</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Target Resource</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Anomaly Trigger</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Action Executed</th>
+                        <th class="py-4 px-6 font-bold uppercase tracking-wider">Authorization</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-table-body" class="divide-y divide-[var(--panel-border)] text-sm">
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. THEME LOGIC ---
+        let isDarkMode = false;
+
+        function initTheme() {
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.getElementById('theme-icon').setAttribute('data-lucide', 'moon');
+        }
+
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+            document.getElementById('theme-icon').setAttribute('data-lucide', isDarkMode ? 'sun' : 'moon');
+            lucide.createIcons();
+
+            if (isDarkMode) {
+                document.getElementById('particles-container').style.display = 'block';
+            } else {
+                document.getElementById('particles-container').style.display = 'none';
+            }
+
+            // Re-render charts for color switch
+            if (document.getElementById('view-dashboard').classList.contains('active')) {
+                if (usageChartIns) { usageChartIns.destroy(); usageChartIns = null; }
+                if (anomalyChartIns) { anomalyChartIns.destroy(); anomalyChartIns = null; }
+                setTimeout(renderCharts, 50);
+            }
+        }
+
+        // --- 2. NAVIGATION LOGIC ---
+        function switchView(id) {
+            document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(e => {
+                e.classList.remove('text-blue-500', 'border-b-2', 'border-blue-500');
+                e.classList.add('text-theme-muted');
+            });
+
+            document.getElementById('view-' + id).classList.add('active');
+            const navItem = document.getElementById('nav-' + id);
+            if (navItem) {
+                navItem.classList.remove('text-theme-muted');
+                navItem.classList.add('text-blue-500', 'border-b-2', 'border-blue-500');
+            }
+
+            // Fix Chart.js Hidden Canvas Bug
+            if (id === 'dashboard') {
+                if (usageChartIns) { usageChartIns.destroy(); usageChartIns = null; }
+                if (anomalyChartIns) { anomalyChartIns.destroy(); anomalyChartIns = null; }
+                setTimeout(renderCharts, 100);
+            }
+        }
+
+        // --- 3. TOAST NOTIFICATION LOGIC ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const isSuccess = type === 'success';
+
+            toast.className = `toast-enter glass p-4 rounded-xl flex items-center gap-3 border-l-4 ${isSuccess ? 'border-l-emerald-500' : 'border-l-red-500'} bg-[var(--toast-bg)] min-w-[300px] shadow-2xl`;
+            toast.innerHTML = `
+                <div class="p-1.5 rounded-full ${isSuccess ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}">
+                    <i data-lucide="${isSuccess ? 'check-circle' : 'x-circle'}" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold">${isSuccess ? 'Action Confirmed' : 'Action Rejected'}</h4>
+                    <p class="text-xs text-theme-muted mt-0.5">${message}</p>
+                </div>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // --- 4. CLUSTER LOGIC ---
+        let currentScale = 'high';
+        function toggleDropdown() {
+            const menu = document.getElementById('cluster-menu');
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                setTimeout(() => { menu.classList.remove('opacity-0', '-translate-y-2'); menu.classList.add('opacity-100', 'translate-y-0'); }, 10);
+            } else {
+                menu.classList.remove('opacity-100', 'translate-y-0');
+                menu.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => { menu.classList.add('hidden'); }, 200);
+            }
+        }
+
+        function selectCluster(name, env, colorClass, scale) {
+            document.getElementById('selected-cluster-name').innerText = name;
+            document.getElementById('selected-cluster-env').innerText = env;
+            document.getElementById('cluster-status-dot').className = `w-2.5 h-2.5 rounded-full bg-${colorClass}-500 shadow-[0_0_8px_rgba(var(--${colorClass}-500),0.6)]`;
+            currentScale = scale;
+            toggleDropdown();
+
+            const t = document.getElementById('terminal-body');
+            t.innerHTML += `<div class="animate-flip text-[10px] my-2 text-blue-500 font-bold">$ kubectl config use-context ${name}</div>`;
+            t.parentElement.scrollTop = t.parentElement.scrollHeight;
+
+            generateData();
+            if (document.getElementById('view-dashboard').classList.contains('active')) {
+                if (usageChartIns) { usageChartIns.destroy(); usageChartIns = null; }
+                if (anomalyChartIns) { anomalyChartIns.destroy(); anomalyChartIns = null; }
+                setTimeout(renderCharts, 50);
+            }
+        }
+
+        // --- 5. DATA ENGINE & SCENARIOS ---
+        const scenarios = [
+            {
+                target: "payment-service-v3", anomaly: "OOMKilled", blast: "LOW", conf: "98%",
+                desc: "Pod terminated by kernel. Memory limit (256Mi) exceeded by 140MB during batch job execution.",
+                action: "Patch Deployment: Increase limits.memory to 512Mi. Execute restart.",
+                trafficDesc: "Sudden <strong class='text-red-500'>380% spike in ingress traffic</strong> detected at T-5m. This caused the payment queue to saturate, exceeding the allocated memory limit and triggering the kernel to OOMKill the pod to preserve node health.",
+                img: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800"
+            },
+            {
+                target: "cart-redis-cache", anomaly: "CrashLoopBackOff", blast: "LOW", conf: "95%",
+                desc: "Pod restarted 6 times in 5m. Fatal error: 'Missing mandatory ENV variable DB_HOST'.",
+                action: "Inject DB_HOST from ConfigMap 'redis-config' and rollout deployment.",
+                trafficDesc: "Traffic dropped to <strong class='text-blue-500'>zero processing capacity</strong>. Telemetry indicates a configuration drift during the last pipeline deployment caused the pod to continuously crash upon boot sequence.",
+                img: "https://images.unsplash.com/photo-1614064641913-a53b51c8af67?auto=format&fit=crop&q=80&w=800"
+            },
+            {
+                target: "frontend-node-04", anomaly: "Node NotReady", blast: "HIGH", conf: "88%",
+                desc: "Kubelet reporting high CPU throttling. Node disconnected from control plane.",
+                action: "Cordon node, safely evict pods, and provision replacement via AutoScalingGroup.",
+                trafficDesc: "A rogue background process caused a <strong class='text-red-500'>100% CPU lockup</strong> on the worker node. The Kubelet became unresponsive, missing health-check heartbeats, leading to a Node NotReady state.",
+                img: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&q=80&w=800"
+            },
+            {
+                target: "auth-worker-pod", anomaly: "Pending Pod", blast: "MED", conf: "99%",
+                desc: "FailedScheduling: 0/12 nodes are available. No nodes match nodeSelector 'gpu=true'.",
+                action: "Provision new NodeGroup with GPU taints, or remove nodeSelector from manifest.",
+                trafficDesc: "System scaling attempted to handle normal traffic load, but the scheduler could not find any nodes satisfying the <strong class='text-yellow-600'>hardware requirements (nodeSelector: gpu=true)</strong>, leaving the pod in a pending state.",
+                img: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=800"
+            }
+        ];
+
+        let activeIncidents = [];
+        let usageChartIns = null;
+        let anomalyChartIns = null;
+        let terminalLogs = [];
+
+        async function generateData() {
+            try {
+                const res = await fetch('/api/snapshot', { cache: 'no-store' });
+                if (!res.ok) throw new Error('Snapshot API failed');
+                const data = await res.json();
+
+                const metrics = data.metrics || {};
+                const analysis = data.analysis || {};
+                const hitlQueue = Array.isArray(data.hitl_queue) ? data.hitl_queue : [];
+                const anomalyQueue = Array.isArray(data.queue) ? data.queue : [];
+                activeIncidents = hitlQueue.length ? hitlQueue : anomalyQueue;
+                terminalLogs = Array.isArray(data.terminal_logs) ? data.terminal_logs : [];
+
+                document.getElementById('metric-pods').innerText = (metrics.pods ?? '--').toLocaleString?.() || metrics.pods || '--';
+                document.getElementById('metric-nodes').innerText = metrics.nodes ?? '--';
+                document.getElementById('metric-anomalies').innerText = metrics.anomalies ?? 0;
+                document.getElementById('metric-pending').innerText = metrics.pending ?? activeIncidents.length;
+                document.getElementById('queue-badge').innerText = metrics.pending ?? activeIncidents.length;
+                document.getElementById('queue-badge').style.display = (metrics.pending ?? activeIncidents.length) > 0 ? 'inline-block' : 'none';
+
+                document.getElementById('analysis-target').innerText = analysis.target || 'No active anomaly';
+                document.getElementById('analysis-type').innerText = analysis.anomaly || 'Healthy';
+                document.getElementById('analysis-desc').innerText = `"${analysis.desc || 'No incidents in latest scan.'}"`;
+                document.getElementById('analysis-action').innerText = analysis.action || 'No action required';
+                document.getElementById('analysis-conf').innerText = analysis.conf || '--';
+                document.getElementById('analysis-blast').innerText = analysis.blast || 'LOW';
+                document.getElementById('analysis-blast').className = `text-3xl font-black ${(analysis.blast || 'LOW') === 'HIGH' ? 'text-red-500' : (analysis.blast || 'LOW') === 'MED' ? 'text-yellow-500' : 'text-emerald-500'}`;
+                document.getElementById('traffic-explanation').innerHTML = analysis.trafficDesc || 'No active traffic anomaly.';
+                if (analysis.img) {
+                    document.getElementById('analysis-img').src = analysis.img;
+                }
+
+                const q = document.getElementById('queue-container');
+                q.innerHTML = '';
+                activeIncidents.forEach((inc, idx) => {
+                    const isRed = (inc.blast || '').toUpperCase() === 'HIGH';
+                    const requestBadge = inc.request_id ? `<span class="text-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md font-mono border border-blue-200 dark:border-blue-500/30">HITL: ${inc.request_id.slice(0, 8)}</span>` : '';
+                    q.innerHTML += `
+                        <div id="inc-${idx}" class="glass p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4 animate-flip border-l-4 ${isRed ? 'border-l-red-500' : 'border-l-yellow-500'}">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="font-bold text-base">${inc.anomaly || 'Anomaly'}</h3>
+                                    <span class="text-[10px] bg-[var(--badge-bg)] px-2 py-1 rounded-md font-mono text-theme-muted border border-[var(--panel-border)]">${inc.target || 'unknown'}</span>
+                                    ${requestBadge}
+                                </div>
+                                <p class="text-xs text-theme-muted mb-4 font-medium"><i data-lucide="zap" class="w-3.5 h-3.5 inline text-blue-500"></i> Plan: ${inc.action || 'Investigate'}</p>
+                                <span class="text-[10px] font-bold uppercase tracking-widest ${isRed ? 'text-red-600 bg-red-50 dark:bg-red-500/10' : 'text-yellow-600 bg-yellow-50 dark:bg-yellow-500/10'} px-2.5 py-1.5 rounded-lg">Risk Level: ${inc.blast || 'MED'}</span>
+                            </div>
+                            <div class="flex gap-3 w-full md:w-auto mt-4 md:mt-0">
+                                <button onclick="resolveAction(${idx}, true)" class="flex-1 md:flex-none btn-primary px-6 py-3 rounded-xl text-xs font-bold shadow-md transition-all duration-200">Approve</button>
+                                <button onclick="resolveAction(${idx}, false)" class="flex-1 md:flex-none border border-[var(--panel-border)] hover:bg-[var(--hover-bg)] px-6 py-3 rounded-xl text-xs font-bold transition-all duration-200">Reject</button>
+                            </div>
+                        </div>`;
+                });
+
+                const audit = document.getElementById('audit-table-body');
+                audit.innerHTML = '';
+                (data.audit || []).forEach((row) => {
+                    const ts = row.timestamp ? new Date(row.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                    const incident = row.incident_summary || 'N/A';
+                    const action = row.action_taken || 'N/A';
+                    const approved = row.human_approved === true;
+                    audit.innerHTML += `
+                        <tr class="hover:bg-[var(--hover-bg)] transition-colors">
+                            <td class="py-4 px-6 text-xs font-mono text-theme-muted">${ts}</td>
+                            <td class="py-4 px-6 font-mono text-xs font-bold text-blue-600 dark:text-blue-400">${incident}</td>
+                            <td class="py-4 px-6 text-xs font-bold ${approved ? 'text-emerald-500' : 'text-yellow-600 dark:text-yellow-500'}">${approved ? 'Approved' : 'Rejected/Auto'}</td>
+                            <td class="py-4 px-6 text-xs text-theme-muted truncate max-w-[250px] font-medium">${action}</td>
+                            <td class="py-4 px-6"><span class="${approved ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border-blue-200 dark:border-blue-500/30' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 border-amber-200 dark:border-amber-500/30'} border px-2 py-1 rounded text-[10px] font-bold tracking-wide">${approved ? 'HUMAN APPROVED' : 'NO APPROVAL'}</span></td>
+                        </tr>`;
+                });
+
+                lucide.createIcons();
+            } catch (err) {
+                // Fallback demo rendering if backend is unavailable.
+                const shuffled = [...scenarios].sort(() => 0.5 - Math.random());
+                activeIncidents = shuffled.slice(0, 2);
+                document.getElementById('metric-pods').innerText = 0;
+                document.getElementById('metric-nodes').innerText = 0;
+                document.getElementById('metric-anomalies').innerText = activeIncidents.length;
+                document.getElementById('metric-pending').innerText = activeIncidents.length;
+                document.getElementById('queue-badge').innerText = activeIncidents.length;
+                showToast('Backend unavailable. Showing demo data.', 'error');
+                lucide.createIcons();
+            }
+        }
+
+        // --- 6. FIXED CHARTS (SPA Safe) ---
+        function renderCharts() {
+            if (!document.getElementById('view-dashboard').classList.contains('active')) return;
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const textColor = isDark ? '#a1a1aa' : '#64748b';
+            const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+
+            const mainAnomaly = activeIncidents[0]?.anomaly || 'None';
+            let cpuData, memData;
+
+            if (mainAnomaly === 'OOMKilled') {
+                cpuData = [30, 32, 35, 33, 40, 42, 0];
+                memData = [40, 45, 50, 70, 95, 100, 0];
+            } else if (mainAnomaly === 'Node NotReady') {
+                cpuData = [40, 45, 60, 85, 100, 100, 0];
+                memData = [30, 32, 33, 35, 38, 40, 0];
+            } else {
+                cpuData = [20, 45, 10, 80, 20, 90, 0];
+                memData = [50, 50, 50, 50, 50, 50, 0];
+            }
+
+            const ctxUsage = document.getElementById('usageChart');
+            if (!ctxUsage) return;
+            const ctx2d = ctxUsage.getContext('2d');
+
+            let gradientCpu = ctx2d.createLinearGradient(0, 0, 0, 300);
+            gradientCpu.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+            gradientCpu.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+            let gradientMem = ctx2d.createLinearGradient(0, 0, 0, 300);
+            gradientMem.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+            gradientMem.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+            usageChartIns = new Chart(ctx2d, {
+                type: 'line',
+                data: {
+                    labels: ['-30m', '-25m', '-20m', '-15m', '-10m', '-5m', 'Now'],
+                    datasets: [
+                        { label: 'CPU %', data: cpuData, borderColor: '#3b82f6', backgroundColor: gradientCpu, borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2 },
+                        { label: 'Mem %', data: memData, borderColor: '#10b981', backgroundColor: gradientMem, borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Critical fix for tabs
+                    color: textColor,
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
+                        y: { min: 0, max: 100, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } }
+                    },
+                    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                }
+            });
+
+            const ctxAnom = document.getElementById('anomalyChart');
+            if (!ctxAnom) return;
+            anomalyChartIns = new Chart(ctxAnom.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['CrashLoop', 'OOMKilled', 'Pending', 'Evicted'],
+                    datasets: [{ data: [35, 25, 15, 5], backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6'], borderWidth: 0, hoverOffset: 4 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    color: textColor,
+                    plugins: { legend: { position: 'right', labels: { color: textColor, boxWidth: 10, font: { size: 11, family: 'Inter' } } } },
+                    cutout: '75%'
+                }
+            });
+        }
+
+        // --- 7. TERMINAL & ACTION RESOLUTION ---
+        function runTerminal() {
+            const t = document.getElementById('terminal-body');
+            t.innerHTML = `<p class="mb-3 text-theme-muted font-bold tracking-widest uppercase text-[10px] border-b border-[var(--panel-border)] pb-2 inline-block">LangGraph Pipeline Initialized</p>`;
+            const logs = terminalLogs.length ? terminalLogs : [
+                `<span class="text-blue-500">> [Observe]</span> Pulling cluster state via MCP...`,
+                `<span class="text-yellow-600 dark:text-yellow-500">> [Detect]</span> Anomaly isolated: ${activeIncidents[0]?.anomaly}.`,
+                `<span class="text-purple-500">> [Diagnose]</span> Chunking and extracting logs...`,
+                `<span class="text-emerald-500">> [Plan]</span> Remediation synthesized. Blast radius evaluated.`,
+                `<span class="text-red-500 font-bold">⚠ [Safety Gate]</span> Execution halted. State change requires Human-in-the-Loop approval.`
+            ];
+            let i = 0;
+            const int = setInterval(() => {
+                if (i < logs.length) {
+                    t.innerHTML += `<div class="animate-flip my-2">${logs[i]}</div>`;
+                    t.parentElement.scrollTop = t.parentElement.scrollHeight;
+                    i++;
+                } else { clearInterval(int); }
+            }, 800);
+        }
+
+        // Clean action resolution using array index
+        async function resolveAction(idx, isApproved) {
+            const id = 'inc-' + idx;
+            const inc = activeIncidents[idx];
+            const targetName = inc.target;
+            const actionDesc = inc.action;
+
+            // --- VISUAL LOADING STATE TO PREVENT UI FREEZING ---
+            const card = document.getElementById(id);
+            const buttons = card.querySelectorAll('button');
+            buttons.forEach(b => {
+                b.disabled = true;
+                b.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+            
+            if (isApproved) {
+                buttons[0].innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> Executing...`;
+            } else {
+                buttons[1].innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> Rejecting...`;
+            }
+            lucide.createIcons();
+            // ---------------------------------------------------
+
+            try {
+                if (inc.request_id) {
+                    await fetch(`/api/hitl/request/${inc.request_id}/resolve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ approved: isApproved })
+                    });
+                } else {
+                    await fetch('/api/actions/resolve', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            target_resource: targetName,
+                            anomaly_type: inc.anomaly,
+                            action: actionDesc,
+                            approved: isApproved,
+                        })
+                    });
+                }
+            } catch (err) {
+                showToast('Failed to send action to backend.', 'error');
+            }
+
+            // Immediately hide the card as the backend is now processing via BackgroundTasks
+            document.getElementById(id).style.display = 'none';
+            
+            let c = parseInt(document.getElementById('queue-badge').innerText) - 1;
+            document.getElementById('queue-badge').innerText = c;
+            document.getElementById('metric-pending').innerText = c;
+            if (c <= 0) { document.getElementById('queue-badge').style.display = 'none'; }
+
+            if (isApproved) {
+                showToast(`Execution started in background for ${targetName}...`, 'success');
+
+                // Add to Audit Trail Dynamically
+                const audit = document.getElementById('audit-table-body');
+                const newRow = document.createElement('tr');
+                newRow.className = "hover:bg-[var(--hover-bg)] transition-colors animate-flip bg-emerald-50 dark:bg-emerald-500/5";
+                newRow.innerHTML = `
+                    <td class="py-4 px-6 text-xs font-mono text-theme-muted">${new Date().toLocaleTimeString()}</td>
+                    <td class="py-4 px-6 font-mono text-xs font-bold text-[var(--text-main)]">${targetName}</td>
+                    <td class="py-4 px-6 text-xs font-bold text-emerald-600 dark:text-emerald-500">Executing (Background)</td>
+                    <td class="py-4 px-6 text-xs text-theme-muted truncate max-w-[250px] font-medium">${actionDesc}</td>
+                    <td class="py-4 px-6"><span class="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 px-2 py-1 rounded text-[10px] font-bold tracking-wide">HUMAN OVERRIDE</span></td>
+                `;
+                audit.insertBefore(newRow, audit.firstChild);
+                lucide.createIcons();
+
+            } else {
+                showToast(`Agent halted. ${targetName} escalated to manual team.`, 'error');
+            }
+
+            // Refresh UI state (Optional since backend takes 30s to fully resolve, but good for keeping metrics aligned)
+            await generateData();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initTheme();
+            lucide.createIcons();
+            await generateData();
+            setTimeout(renderCharts, 150);
+            runTerminal();
+            setInterval(async () => {
+                await generateData();
+                runTerminal();
+            }, 30000);
+        });
+    </script>
+</body>
+
+</html>

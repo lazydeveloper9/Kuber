@@ -1,10 +1,12 @@
 import json
 import re
+from pydantic import ValidationError
 from .state import ClusterState, Anomaly, AnomalyList
 from langchain_ollama import ChatOllama
 
 # Initialize your local offline model
 llm = ChatOllama(model="llama3.2", temperature=0)
+MAX_ANOMALIES = 3
 
 def detect_node(state: ClusterState) -> dict:
     """
@@ -60,19 +62,50 @@ def detect_node(state: ClusterState) -> dict:
             parsed = []
 
         normalized = []
+        allowed_severity = {"LOW", "MED", "HIGH", "CRITICAL"}
         for item in parsed:
             if not isinstance(item, dict):
                 continue
+            try:
+                confidence = float(item.get("confidence", 0.7))
+            except (TypeError, ValueError):
+                confidence = 0.7
+
+            severity = str(item.get("severity", "MED")).upper()
+            if severity not in allowed_severity:
+                severity = "MED"
+
             normalized.append(
                 {
                     "type": item.get("type", "Unknown"),
-                    "severity": item.get("severity", "MED"),
+                    "severity": severity,
                     "affected_resource": item.get("affected_resource") or item.get("target_resource", "unknown"),
-                    "confidence": float(item.get("confidence", 0.7)),
+                    "confidence": max(0.0, min(1.0, confidence)),
                 }
             )
 
-        anomalies = [Anomaly.model_validate(a) for a in normalized]
+        anomalies = []
+        for candidate in normalized:
+            try:
+                anomalies.append(Anomaly.model_validate(candidate))
+            except ValidationError:
+                # Skip malformed anomaly records while preserving valid detections.
+                continue
+
+        # De-duplicate and cap anomalies so planning stays deterministic and fast.
+        seen = set()
+        deduped = []
+        for anomaly in anomalies:
+            key = (anomaly.affected_resource, anomaly.type)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(anomaly)
+        deduped.sort(key=lambda a: (a.severity != "HIGH", -a.confidence))
+        anomalies = deduped[:MAX_ANOMALIES]
+
+        # Final typed check for the full list shape.
+        anomalies = AnomalyList(anomalies=anomalies).anomalies
 
         if anomalies:
             print(f"   🚨 Found {len(anomalies)} anomaly!")

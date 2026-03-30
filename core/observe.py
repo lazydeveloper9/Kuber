@@ -5,6 +5,8 @@ from .state import ClusterState
 RBAC_FLAG = "--as=system:serviceaccount:default:k8swhisperer-sa"
 # Changed from "-n default" to "-A" for ALL namespaces
 NAMESPACE_FLAG = ["-A"] 
+IGNORED_NAMESPACES = {"kube-system", "kube-public", "kube-node-lease"}
+MAX_WARNING_EVENTS = 8
 
 def run_kubectl(cmd_list: list) -> dict:
     """Helper to run kubectl commands and parse JSON."""
@@ -30,6 +32,11 @@ def observe_node(state: ClusterState) -> dict:
     for item in pods_raw.get("items", []):
         meta = item.get("metadata", {})
         status = item.get("status", {})
+        namespace = meta.get("namespace", "unknown")
+
+        # Ignore noisy control-plane/system namespaces for demo clarity.
+        if namespace in IGNORED_NAMESPACES:
+            continue
         
         # Calculate total restarts for the pod
         restarts = 0
@@ -38,7 +45,7 @@ def observe_node(state: ClusterState) -> dict:
             
         pods_data.append({
             "name": meta.get("name", "unknown"),
-            "namespace": meta.get("namespace", "unknown"),
+            "namespace": namespace,
             "phase": status.get("phase", "unknown"),
             "restarts": restarts
         })
@@ -46,15 +53,32 @@ def observe_node(state: ClusterState) -> dict:
     # 2. Fetch Events across all namespaces
     events_raw = run_kubectl(["get", "events"])
     events_data = []
+    warning_candidates = []
     for evt in events_raw.get("items", []):
         # We only care about Warnings for anomalies
         if evt.get("type") == "Warning":
-            events_data.append({
+            namespace = evt.get("involvedObject", {}).get("namespace")
+            if namespace in IGNORED_NAMESPACES:
+                continue
+            warning_candidates.append({
                 "reason": evt.get("reason"),
                 "message": evt.get("message"),
                 "resource": evt.get("involvedObject", {}).get("name"),
-                "namespace": evt.get("involvedObject", {}).get("namespace")
+                "namespace": namespace,
+                "timestamp": evt.get("lastTimestamp") or evt.get("eventTime") or evt.get("metadata", {}).get("creationTimestamp", "")
             })
+
+    # Keep only the most recent warning events to avoid overwhelming the detector/planner.
+    warning_candidates.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+    events_data = [
+        {
+            "reason": evt.get("reason"),
+            "message": evt.get("message"),
+            "resource": evt.get("resource"),
+            "namespace": evt.get("namespace"),
+        }
+        for evt in warning_candidates[:MAX_WARNING_EVENTS]
+    ]
 
     # 3. Fetch Node States
     nodes_raw = run_kubectl(["get", "nodes"])

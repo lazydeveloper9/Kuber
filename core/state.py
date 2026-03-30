@@ -2,8 +2,6 @@ import operator
 from typing import TypedDict, Annotated, List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
-# --- Pydantic Models ---
-
 class Anomaly(BaseModel):
     type: str = Field(description="e.g., CrashLoopBackOff, OOMKilled, Pending")
     severity: str = Field(description="LOW, MED, HIGH, CRITICAL")
@@ -25,14 +23,13 @@ class LogEntry(BaseModel):
     incident_summary: str
     action_taken: str
     human_approved: bool
-
-# --- Shared Graph State ---
+    stellar_receipt: Optional[str] = None  # Added for Web3 Audit Trail
 
 class ClusterState(TypedDict):
-    events: List[Dict[str, Any]]                # Raw kubectl events & pod phases
-    anomalies: List[Anomaly]                    # Detected issues
-    diagnosis: str                              # LLM root cause string
-    plan: Optional[RemediationPlan]             # Proposed fix
-    approved: bool                              # HITL decision
-    result: str                                 # Execution output
+    events: List[Dict[str, Any]]                
+    anomalies: List[Anomaly]                    
+    diagnosis: str                              
+    plan: Optional[RemediationPlan]             
+    approved: bool                              
+    result: str                                 
     audit_log: Annotated[List[LogEntry], operator.add]

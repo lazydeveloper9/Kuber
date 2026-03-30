@@ -1,20 +1,204 @@
 [
     {
-        "timestamp": "2026-03-29T17:17:03.662700+00:00",
-        "incident_summary": "Cluster is healthy. No anomalies detected.",
-        "action_taken": "",
+        "timestamp": "2026-03-30T01:48:45.695132+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-apiserver-minikube.",
+        "action_taken": "Rejected action for kube-apiserver-minikube",
         "human_approved": false
     },
     {
-        "timestamp": "2026-03-29T17:24:47.125360+00:00",
-        "incident_summary": "The pod is failing due to a missing environment variable, DB_CONNECTION_STRING, which is required for the container to function correctly, causing it to crash and triggering a restart loop. This issue can be resolved by setting the correct value for this environment variable in the pod's configuration or deployment YAML file.",
-        "action_taken": "Successfully patched ENV on api-gateway-crash.",
+        "timestamp": "2026-03-30T01:48:47.758048+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-controller-manager-minikube.",
+        "action_taken": "Rejected action for kube-controller-manager-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T01:49:06.451369+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-65cf64c546-gqjwx.",
+        "action_taken": "Successfully patched ENV on api-gateway-crash. Pods are still unhealthy: api-gateway-crash-65cf64c546-gqjwx phase=Running reason=",
         "human_approved": true
     },
     {
-        "timestamp": "2026-03-29T17:25:59.530998+00:00",
-        "incident_summary": "The pod is failing due to a missing environment variable, DB_CONNECTION_STRING, which is required for the API Gateway container to function properly.\n\nThis is likely because the image used by the container does not provide this variable, and it was not set manually in the pod's configuration.",
-        "action_taken": "Execution aborted by human.",
+        "timestamp": "2026-03-30T01:49:06.459552+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-proxy-rbff9.",
+        "action_taken": "Rejected action for kube-proxy-rbff9",
         "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T01:49:33.612762+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-6d6b7cc69-k9fpb.",
+        "action_taken": "Failed to restart pod: Error from server (NotFound): pods \"api-gateway-crash-6d6b7cc69-k9fpb\" not found",
+        "human_approved": true
+    },
+    {
+        "timestamp": "2026-03-30T01:49:36.093228+00:00",
+        "incident_summary": "CrashLoopBackOff detected on storage-provisioner.",
+        "action_taken": "Failed to restart pod: Error from server (NotFound): pods \"storage-provisioner\" not found",
+        "human_approved": true
+    },
+    {
+        "timestamp": "2026-03-30T01:50:02.958395+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-scheduler-minikube.",
+        "action_taken": "Failed to restart pod: Error from server (NotFound): pods \"kube-scheduler-minikube\" not found",
+        "human_approved": true
+    },
+    {
+        "timestamp": "2026-03-30T01:50:39.446193+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-6d6b7cc69-k9fpb.",
+        "action_taken": "Rejected action for api-gateway-crash-6d6b7cc69-k9fpb",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T01:50:39.449837+00:00",
+        "incident_summary": "CrashLoopBackOff detected on storage-provisioner.",
+        "action_taken": "Rejected action for storage-provisioner",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T01:50:39.469958+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-apiserver-minikube.",
+        "action_taken": "Rejected action for kube-apiserver-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T01:50:39.488007+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-controller-manager-minikube.",
+        "action_taken": "Rejected action for kube-controller-manager-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T01:50:39.504739+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-proxy-rbff9.",
+        "action_taken": "Rejected action for kube-proxy-rbff9",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T01:52:24.626943+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-65cf64c546-gqjwx.",
+        "action_taken": "Successfully patched ENV on api-gateway-crash. Pods are still unhealthy: api-gateway-crash-65cf64c546-gqjwx phase=Running reason=",
+        "human_approved": true
+    },
+    {
+        "timestamp": "2026-03-30T03:18:31.237471+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-65cf64c546-gqjwx.",
+        "action_taken": "Rejected action for api-gateway-crash-65cf64c546-gqjwx",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:18:32.131469+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-65cf64c546-6c4nt.",
+        "action_taken": "Rejected action for api-gateway-crash-65cf64c546-6c4nt",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:18:32.821455+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-6d6b7cc69-k9fpb.",
+        "action_taken": "Rejected action for api-gateway-crash-6d6b7cc69-k9fpb",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:18:33.461406+00:00",
+        "incident_summary": "Unhealthy detected on coredns-7d764666f9-n7pnk.",
+        "action_taken": "Rejected action for coredns-7d764666f9-n7pnk",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:18:34.099535+00:00",
+        "incident_summary": "CrashLoopBackOff detected on etcd-minikube.",
+        "action_taken": "Rejected action for etcd-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:20:17.301943+00:00",
+        "incident_summary": "FailedCreatePodSandBox detected on etcd-minikube.",
+        "action_taken": "Rejected action for etcd-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:20:17.311449+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-apiserver-minikube.",
+        "action_taken": "Rejected action for kube-apiserver-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:20:17.329829+00:00",
+        "incident_summary": "FailedCreatePodSandBox detected on kube-apiserver-minikube.",
+        "action_taken": "Rejected action for kube-apiserver-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:20:17.346865+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-controller-manager-minikube.",
+        "action_taken": "Rejected action for kube-controller-manager-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:20:17.366721+00:00",
+        "incident_summary": "FailedCreatePodSandBox detected on kube-controller-manager-minikube.",
+        "action_taken": "Rejected action for kube-controller-manager-minikube",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:20:17.386397+00:00",
+        "incident_summary": "CrashLoopBackOff detected on kube-proxy-rbff9.",
+        "action_taken": "Rejected action for kube-proxy-rbff9",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:20:17.407276+00:00",
+        "incident_summary": "FailedCreatePodSandBox detected on kube-proxy-rbff9.",
+        "action_taken": "Rejected action for kube-proxy-rbff9",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:36:41.877241+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-65cf64c546-gqjwx.",
+        "action_taken": "Successfully patched ENV on api-gateway-crash. Resolution verified. Healthy pod(s): api-gateway-crash-65cf64c546-gqjwx",
+        "human_approved": true
+    },
+    {
+        "timestamp": "2026-03-30T03:40:21.236204+00:00",
+        "incident_summary": "The pod is failing due to a missing environment variable DB_CONNECTION_STRING, which is required for the container to function correctly.\n\nThis issue is likely caused by the image used in the pod (busybox) not providing this variable, and the Kubernetes controller not being able to provide it through the environment.",
+        "action_taken": "Successfully patched ENV on api-gateway-crash. Pods are still unhealthy: api-gateway-crash-65cf64c546-gqjwx phase=Running reason=",
+        "human_approved": true,
+        "stellar_receipt": null
+    },
+    {
+        "timestamp": "2026-03-30T03:41:43.696004+00:00",
+        "incident_summary": "The pod is failing due to a missing environment variable DB_CONNECTION_STRING, which is required for the container to function correctly, causing it to crash and triggering a CrashLoopBackOff anomaly. This suggests that the deployment configuration is incomplete or incorrect.",
+        "action_taken": "Execution aborted by human.",
+        "human_approved": false,
+        "stellar_receipt": null
+    },
+    {
+        "timestamp": "2026-03-30T03:43:39.343188+00:00",
+        "incident_summary": "The pod is failing due to a missing environment variable, DB_CONNECTION_STRING, which is required for the container to function correctly.\n\nThis is likely because the image used in the pod does not provide this variable by default, and the pod's configuration is not overriding it.",
+        "action_taken": "Pod api-gateway-crash-65cf64c546-gqjwx deleted for restart. No related pods found after execution.",
+        "human_approved": true,
+        "stellar_receipt": "5ba9654f0634fc4c388d800de5cd22efbac9154308ac92b5f38b55c5e5680ef2"
+    },
+    {
+        "timestamp": "2026-03-30T03:45:23.378535+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-65cf64c546-rlrgq.",
+        "action_taken": "Rejected action for api-gateway-crash-65cf64c546-rlrgq",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:45:26.735414+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-6d6b7cc69-k9fpb.",
+        "action_taken": "Rejected action for api-gateway-crash-6d6b7cc69-k9fpb",
+        "human_approved": false
+    },
+    {
+        "timestamp": "2026-03-30T03:45:40.137185+00:00",
+        "incident_summary": "The pod is failing due to a missing environment variable, DB_CONNECTION_STRING, which is required for the container to function correctly.\n\nThis is likely causing the container to crash and restart repeatedly, resulting in the CrashLoopBackOff anomaly.",
+        "action_taken": "Successfully patched ENV on api-gateway-crash. Resolution verified. Healthy pod(s): api-gateway-crash-65cf64c546-rlrgq",
+        "human_approved": true,
+        "stellar_receipt": "06f82ff0c61dfcfe0046e2f41dc3f7437ffa57021f488df554324bfbad5f95f6"
+    },
+    {
+        "timestamp": "2026-03-30T03:45:49.146642+00:00",
+        "incident_summary": "CrashLoopBackOff detected on api-gateway-crash-65cf64c546-gqjwx.",
+        "action_taken": "Failed to restart pod: Error from server (NotFound): pods \"api-gateway-crash-65cf64c546-gqjwx\" not found",
+        "human_approved": true
     }
 ]

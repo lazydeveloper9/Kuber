@@ -32,6 +32,23 @@ def get_pod_describe(pod_name: str) -> str:
     except Exception as e:
         return f"Error fetching describe: {e}"
 
+def get_recent_events_for_pod(pod_name: str) -> str:
+    """Fetches recent warning events for a specific pod."""
+    cmd = [
+        "kubectl", "get", "events",
+        "--field-selector", f"involvedObject.name={pod_name},type=Warning",
+        "--sort-by=.lastTimestamp",
+    ] + NAMESPACE + [RBAC_FLAG]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0 and result.stdout.strip():
+            lines = [line for line in result.stdout.strip().splitlines() if line.strip()]
+            # Return the most recent event lines only to keep prompt size bounded.
+            return "\n".join(lines[-10:])
+        return "No recent warning events found for this pod."
+    except Exception as e:
+        return f"Error fetching recent events: {e}"
+
 def diagnose_node(state: ClusterState) -> dict:
     """
     03 Diagnose: Analyzes logs and describe output to find the root cause.
@@ -48,6 +65,7 @@ def diagnose_node(state: ClusterState) -> dict:
     # 1. Fetch the raw data from the cluster
     logs = get_pod_logs(target_pod)
     describe_data = get_pod_describe(target_pod)
+    recent_events = get_recent_events_for_pod(target_pod)
     
     # 2. Ask the local LLM to synthesize it
     prompt = f"""
@@ -63,6 +81,11 @@ def diagnose_node(state: ClusterState) -> dict:
     --- DESCRIBE START ---
     {describe_data.strip()}
     --- DESCRIBE END ---
+
+    Here are the most recent warning events fetched directly for the pod:
+    --- RECENT EVENTS START ---
+    {recent_events.strip()}
+    --- RECENT EVENTS END ---
     
     INSTRUCTIONS:
     Write a concise, plain-English 1 to 2 sentence root cause diagnosis based ONLY on the logs and events provided.
