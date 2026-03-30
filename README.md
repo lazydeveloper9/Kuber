@@ -127,3 +127,12 @@ This README acts as your project's resume. When the judges look at it, they will
 
 Would you like to do a final "mock pitch" where I ask you a challenging question a judge might ask ab
 ```
+UI
+<img width="1906" height="905" alt="Screenshot 2026-03-30 105143" src="https://github.com/user-attachments/assets/dc0301f7-fd64-437d-9583-6d6da0b023ae" />
+
+<img width="1909" height="912" alt="Screenshot 2026-03-30 105200" src="https://github.com/user-attachments/assets/3b7d8955-1b28-4287-bcc2-845892ffec83" />
+
+<img width="1905" height="908" alt="Screenshot 2026-03-30 105218" src="https://github.com/user-attachments/assets/dae0451c-67fa-4fa7-8576-3f1541d098cc" />
+
+<img width="1911" height="902" alt="Screenshot 2026-03-30 105236" src="https://github.com/user-attachments/assets/a68bf12a-b175-4083-b1ec-95212cec5f4f" />
+<img width="1909" height="908" alt="Screenshot 2026-03-30 105251" src="https://github.com/user-attachments/assets/d6e68312-0266-462a-ba98-b59c4ae6c2ea" />
