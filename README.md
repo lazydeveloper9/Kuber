@@ -121,11 +121,6 @@ python run_agent.py
 Watch as the agent observes the crash, diagnoses the missing DB_CONNECTION_STRING, and pauses for your approval to inject the patch!
 
 ```
-***
-
-This README acts as your project's resume. When the judges look at it, they will immediately see that you understand core DevOps concepts (like RBAC, Air-Gapping, and CI/CD pipelines) on top of the AI implementation.
-
-Would you like to do a final "mock pitch" where I ask you a challenging question a judge might ask ab
 ```
 UI
 <img width="1913" height="908" alt="image" src="https://github.com/user-attachments/assets/ef34104f-b444-4c4b-b16e-410fdb84c929" />
