@@ -120,8 +120,7 @@ python run_agent.py
 ```
 Watch as the agent observes the crash, diagnoses the missing DB_CONNECTION_STRING, and pauses for your approval to inject the patch!
 
-```
-```
+
 UI
 <img width="1913" height="908" alt="image" src="https://github.com/user-attachments/assets/ef34104f-b444-4c4b-b16e-410fdb84c929" />
 
