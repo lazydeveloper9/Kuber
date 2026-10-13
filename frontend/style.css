@@ -1,0 +1,563 @@
+/* ==========================================================================
+   AutoKube — style.css
+   Part 1 is the original stylesheet, unchanged (classes, variables, keyframes).
+   Part 2 is an additive layer that only introduces NEW selectors.
+   ========================================================================== */
+
+/* ------------------------------ PART 1: ORIGINAL ------------------------------ */
+/* Premium Theme Variables */
+:root[data-theme="light"] {
+    --bg-main: #f8fafc;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --panel-bg: rgba(255, 255, 255, 0.85);
+    --panel-border: rgba(0, 0, 0, 0.06);
+    --panel-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 0 3px rgba(0, 0, 0, 0.02);
+    --terminal-bg: #f1f5f9;
+    --terminal-border: #e2e8f0;
+    --hover-bg: #f1f5f9;
+    --badge-bg: #f1f5f9;
+    --toast-bg: #ffffff;
+}
+
+:root[data-theme="dark"] {
+    --bg-main: #09090b;
+    --text-main: #fafafa;
+    --text-muted: #a1a1aa;
+    --panel-bg: rgba(24, 24, 27, 0.65);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --panel-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4), 0 0 5px rgba(0, 0, 0, 0.1);
+    --terminal-bg: #000000;
+    --terminal-border: #27272a;
+    --hover-bg: rgba(255, 255, 255, 0.05);
+    --badge-bg: rgba(255, 255, 255, 0.1);
+    --toast-bg: #18181b;
+}
+
+/* Supplementary tokens (additive only — existing variables above are untouched) */
+:root {
+    --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+    --dur-fast: 150ms;
+    --dur-base: 350ms;
+    --dur-slow: 650ms;
+}
+
+:root[data-theme="light"] {
+    --elevation-hover: 0 20px 40px -12px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-theme="dark"] {
+    --elevation-hover: 0 24px 48px -12px rgba(0, 0, 0, 0.55), 0 6px 16px -4px rgba(0, 0, 0, 0.35);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    transition: background-color 0.4s ease, color 0.4s ease;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Firefox scrollbar parity with the existing webkit scrollbar rules below */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--panel-border) transparent;
+}
+
+/* Momentum scrolling on touch devices for horizontally-scrollable tables */
+.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+}
+
+.font-mono {
+    font-family: 'Fira Code', monospace;
+}
+
+/* Premium Glassmorphism */
+.glass {
+    background: var(--panel-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--panel-border);
+    box-shadow: var(--panel-shadow);
+    transition: transform var(--dur-base) var(--ease-premium),
+        box-shadow var(--dur-base) var(--ease-premium),
+        border-color var(--dur-base) var(--ease-premium);
+}
+
+.glass:hover {
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* 3D tilt-lift on hover — desktop/fine-pointer only, per your call to skip a touch equivalent */
+@media (hover: hover) and (pointer: fine) {
+    .glass:hover {
+        transform: perspective(1000px) rotateX(1.5deg) translateY(-3px);
+        box-shadow: var(--elevation-hover);
+    }
+}
+
+/* Lighter blur on small screens — backdrop-filter is GPU-expensive on mobile */
+@media (max-width: 640px) {
+    .glass {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+}
+
+/* Graceful fallback where backdrop-filter isn't supported */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+        background: var(--bg-main);
+    }
+}
+
+/* Advanced 3D Flip Animations */
+@keyframes flipIn {
+    0% {
+        opacity: 0;
+        transform: perspective(1400px) rotateX(-18deg) rotateY(-2deg) translateY(22px) scale(0.97);
+    }
+
+    60% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 1;
+        transform: perspective(1400px) rotateX(0deg) rotateY(0deg) translateY(0) scale(1);
+    }
+}
+
+.animate-flip {
+    animation: flipIn var(--dur-slow) var(--ease-premium) forwards;
+    opacity: 0;
+    transform-style: preserve-3d;
+}
+
+/* Lighter, non-rotational entrance on small screens — smoother and less motion-heavy on mobile GPUs */
+@media (max-width: 640px) {
+    @keyframes flipIn {
+        0% {
+            opacity: 0;
+            transform: translateY(14px) scale(0.98);
+        }
+
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+}
+
+.delay-100 {
+    animation-delay: 75ms;
+}
+
+.delay-200 {
+    animation-delay: 150ms;
+}
+
+.delay-300 {
+    animation-delay: 225ms;
+}
+
+/* Toast Animation */
+@keyframes slideInRight {
+    0% {
+        transform: perspective(800px) translateX(120%) rotateY(-8deg);
+        opacity: 0;
+    }
+
+    100% {
+        transform: perspective(800px) translateX(0) rotateY(0deg);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+}
+
+.toast-enter {
+    animation: slideInRight var(--dur-base) var(--ease-premium) forwards;
+}
+
+.toast-exit {
+    animation: fadeOut var(--dur-fast) ease forwards;
+}
+
+/* Control Center (CC) Toggle Switch */
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #10b981;
+}
+
+.toggle-checkbox:checked+.toggle-label {
+    background-color: #10b981;
+}
+
+/* Image Zoom Transition */
+.img-zoom {
+    transition: transform 10s ease-out;
+}
+
+.glass:hover .img-zoom {
+    transform: scale(1.1);
+}
+
+/* View Management — 3D page transition on every switchView() call */
+.view-section {
+    display: none;
+    opacity: 0;
+    transform: perspective(1400px) rotateX(4deg) translateY(16px) scale(0.98);
+    transition: opacity var(--dur-base) var(--ease-premium), transform var(--dur-base) var(--ease-premium);
+    transform-style: preserve-3d;
+}
+
+.view-section.active {
+    display: block;
+    opacity: 1;
+    transform: perspective(1400px) rotateX(0deg) translateY(0) scale(1);
+}
+
+.text-theme-muted {
+    color: var(--text-muted);
+}
+
+.btn-primary {
+    background-color: var(--text-main);
+    color: var(--bg-main);
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.btn-primary:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+    opacity: 0.95;
+}
+
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--panel-border);
+    border-radius: 4px;
+}
+
+#particles-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: -1;
+    display: none;
+}
+
+.particle {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    animation: floatUp 15s linear infinite;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(100vh) scale(0.5);
+        opacity: 0;
+    }
+
+    20% {
+        opacity: 0.3;
+    }
+
+    80% {
+        opacity: 0.3;
+    }
+
+    100% {
+        transform: translateY(-10vh) scale(1.2);
+        opacity: 0;
+    }
+}
+
+/* FIXED Chart Canvas Wrapper */
+.chart-wrapper {
+    position: relative;
+    width: 100%;
+    flex-grow: 1;
+    min-height: 220px;
+}
+
+@media (max-width: 480px) {
+    .chart-wrapper {
+        min-height: 180px;
+    }
+}
+
+/* Skip the ambient particle layer on small screens — pure decoration, not worth the paint cost */
+@media (max-width: 640px) {
+    #particles-container {
+        display: none !important;
+    }
+}
+
+/* Keyboard accessibility for the many onclick-driven interactive elements */
+button:focus-visible,
+[onclick]:focus-visible,
+.nav-link:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* Respect OS-level reduced-motion: disable every animation/transform added above */
+@media (prefers-reduced-motion: reduce) {
+
+    .animate-flip,
+    .toast-enter,
+    .toast-exit,
+    .view-section,
+    .particle,
+    .img-zoom,
+    .glass {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+    }
+
+    .glass:hover {
+        transform: none !important;
+        box-shadow: var(--panel-shadow) !important;
+    }
+
+    #particles-container {
+        display: none !important;
+    }
+}
+
+
+/* ------------------------------ PART 2: ADDITIVE ------------------------------ */
+
+/* Page-level entrance for the active view (display:none -> block cannot transition,
+   so this keyframe is what makes switchView() visibly animate). */
+@keyframes viewEnter {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.view-enter {
+    animation: viewEnter var(--dur-base) var(--ease-premium) both;
+}
+
+/* Metric values nudge in when a refreshed number lands */
+@keyframes statTick {
+    0%   { opacity: 0.45; transform: translateY(4px); }
+    100% { opacity: 1;    transform: translateY(0); }
+}
+
+.stat-tick {
+    animation: statTick 450ms var(--ease-premium);
+}
+
+/* Navigation pill: scrolls sideways instead of overflowing on narrow screens */
+.nav-pills {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.nav-pills::-webkit-scrollbar {
+    display: none;
+}
+
+.nav-pills .nav-link {
+    flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+    .nav-pills {
+        gap: 1.25rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+        font-size: 0.8125rem;
+    }
+}
+
+/* Toasts never exceed the viewport on phones (doubled selector beats the min-w utility) */
+.toast-item.toast-item {
+    min-width: min(300px, calc(100vw - 3rem));
+    max-width: calc(100vw - 3rem);
+    cursor: pointer;
+}
+
+/* Empty states (queue / tables) */
+.empty-state {
+    text-align: center;
+}
+
+/* Busy state for buttons that trigger a request */
+.is-busy {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Keyboard focus for elements made focusable by script.js */
+[role="button"]:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* Reduced motion: switch the additive animations off too */
+@media (prefers-reduced-motion: reduce) {
+    .view-enter,
+    .stat-tick {
+        animation: none !important;
+    }
+}
+
+
+/* ---------------- Undo window (safer approvals) ---------------- */
+.undo-pending {
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.4);
+}
+
+.undo-bar {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--panel-border);
+    overflow: hidden;
+}
+
+.undo-bar > span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #3b82f6;
+    transform-origin: left center;
+    animation: undoShrink var(--undo-ms, 8000ms) linear forwards;
+}
+
+@keyframes undoShrink {
+    to { transform: scaleX(0); }
+}
+
+/* ---------------- Hover & focus effects (new selectors only) ---------------- */
+
+/* Press feedback for every enabled button, on all devices */
+button:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+/* Outline buttons (Reject, Undo, Verify, Re-anchor, Refresh) get a blue accent */
+#queue-container button:not(.btn-primary),
+#bc-logs-body button,
+#bc-refresh-btn {
+    transition: transform 0.2s var(--ease-premium), border-color 0.2s, color 0.2s, background-color 0.2s;
+}
+
+#queue-container button:not(.btn-primary):not(:disabled):hover,
+#queue-container button:not(.btn-primary):not(:disabled):focus-visible,
+#bc-logs-body button:hover,
+#bc-logs-body button:focus-visible,
+#bc-refresh-btn:hover,
+#bc-refresh-btn:focus-visible {
+    border-color: rgba(59, 130, 246, 0.6);
+    color: #3b82f6;
+}
+
+/* Table rows: accent bar on the first cell */
+tbody tr td:first-child {
+    transition: box-shadow 0.2s ease;
+}
+
+tbody tr:hover td:first-child {
+    box-shadow: inset 3px 0 0 #3b82f6;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    /* Animated underline for inactive nav links */
+    .nav-pills .nav-link {
+        position: relative;
+    }
+
+    .nav-pills .nav-link:not(.border-b-2)::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -2px;
+        height: 2px;
+        background: #3b82f6;
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.25s var(--ease-premium);
+    }
+
+    .nav-pills .nav-link:not(.border-b-2):hover::after,
+    .nav-pills .nav-link:not(.border-b-2):focus-visible::after {
+        transform: scaleX(1);
+    }
+
+    /* Outline buttons lift slightly */
+    #queue-container button:not(.btn-primary):not(:disabled):hover,
+    #bc-logs-body button:hover,
+    #bc-refresh-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Cluster options nudge toward the cursor */
+    #cluster-menu [onclick] {
+        transition: transform 0.2s var(--ease-premium);
+    }
+
+    #cluster-menu [onclick]:hover {
+        transform: translateX(3px);
+    }
+
+    /* Theme icon turns a little on hover */
+    #theme-icon {
+        transition: transform 0.3s var(--ease-premium);
+    }
+
+    #theme-toggle:hover #theme-icon {
+        transform: rotate(20deg) scale(1.1);
+    }
+
+    /* Icons inside cards scale up when their card is hovered */
+    .glass .lucide:not(.animate-spin) {
+        transition: transform 0.25s var(--ease-premium);
+    }
+
+    .glass:hover .lucide:not(.animate-spin) {
+        transform: scale(1.12);
+    }
+}
